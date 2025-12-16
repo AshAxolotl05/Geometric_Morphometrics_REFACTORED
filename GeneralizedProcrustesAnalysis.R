@@ -1,5 +1,38 @@
 library('r2r')
 
+#makes a hashmap to store the sulci for each species + surface combination
+makeSulci = function() {
+  map = hashmap()
+
+  pial = hashmap()
+  mPi = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'po', 'of', 'ip', 'di', 'cb', 'io')
+  hPi = list('ar', 'cb', 'ce', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
+  cPi = list('ce', 'la', 'st', 'po', 'of', 'ip', 'cb')
+
+  pial[['macaque']] = mPi
+  pial[['human']] = hPi
+  pial[['combined']] = cPi
+
+  white = hashmap()
+  mWh = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'co', 'ci', 'po', 'of', 'ca', 'ip', 'di', 'io')
+  hWh = list('ar', 'ca', 'ce', 'ci', 'co', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
+  cWh = list('ca', 'ce', 'ci', 'co','ip', 'la', 'of', 'po', 'st')
+
+  white[['macaque']] = mWh
+  white[['human']] = hWh
+  white[['combined']] = cWh
+
+  map[['pi']] = pial
+  map[['wh']] = white
+
+  return(map)
+}
+
+# returns the relevant sulci for a given surface and species
+getSulci = function(surface, species) {
+  return(SULCI[[surface]][[species]])
+}
+
 #Resamples a single sulcus to a given number of points
 resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   temp = df[(df$sulcus == sulcus & df$subject == subject & df$species == species & df$hemisphere == hemi & df$time == time), c('x', 'y','z')]
@@ -30,7 +63,7 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
 }
 
 #Handles all resampling for a given surface (White or Gray matter)
-resampleCurves = function(df, surface, sulcalLengths=NULL) {
+resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
   #create data frame to store resampled points
   resampled = data.frame(
   x = numeric(),
@@ -45,7 +78,7 @@ resampleCurves = function(df, surface, sulcalLengths=NULL) {
 )
 
   # if a reference hashmap was provided, take note. Otherwise all sulci are resampled to 100 points
-  REFERENCE = is.NULL(sulcalLengths)
+  REFERENCE = is.null(sulcalLengths)
   numpoints = 100
 
   for (species in list('macaque', 'human')) {
@@ -94,8 +127,8 @@ resampleCurves = function(df, surface, sulcalLengths=NULL) {
 }
 
 # Excludes a given list of outliers from the analysis
-excludeOutliers= function(outliers){
-  filteredDf = resampled
+excludeOutliers= function(df, outliers){
+  filteredDf = df
   filteredDf$specimen = paste(filteredDf$subject, filteredDf$time, filteredDf$species, sep='_')
 
   #remove outliers as defined by plotOutliers
@@ -204,7 +237,7 @@ procrustes = function(num, data, sulcalLengths=NULL) {
   slideEnd = c()  # next lm
 
   # If given no reference for sulcus lengths, there is a "real" lm at the start and end of every 100 pt curve
-  if (is.NULL(sulcalLengths)) {
+  if (is.null(sulcalLengths)) {
     numSemi = num - (2 * num / 100)
 
     for (i in 1:num) {
@@ -243,9 +276,8 @@ procrustes = function(num, data, sulcalLengths=NULL) {
   }
 
   sliders <- cbind(slideStart, semiLm, slideEnd)
-
   gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE, max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
-
   return(gpa)
 }
 
+SULCI = makeSulci()
