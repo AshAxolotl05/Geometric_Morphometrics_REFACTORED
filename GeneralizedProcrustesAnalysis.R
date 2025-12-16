@@ -106,3 +106,31 @@ excludeOutliers= function(outliers){
   return(filteredDf)
 }
 
+# Transforms the dataframe into a p x k x n array compatible with geomorph functions
+transformToArray = function(df, num) {
+  #format array
+  data = arrayspecs(cbind(df$x, df$y, df$z), num, 3)
+
+  # add specimen ids
+  ids = c()
+  species = c()
+  subject = c()
+
+  for(i in seq(1, nrow(df), by = num)) {
+    ids = c(ids, df[i, 'specimen'])
+    species = c(species, df[i, 'species'])
+    subject = c(subject, paste(df[i, 'subject'], df[i, 'species'], sep='_'))
+  }
+
+  dimnames(data) = list(
+    Landmark = 1:num ,  # names for landmarks
+    Dimension = c("X", "Y", "Z"),       # names for dimensions
+    Specimen = ids      # names for specimens
+  )
+
+  return(data)
+}
+
+# Performs Generalized Procrustes Superimposition, minimizing bending energy and utilizing sliding semi landmarks
+procrustes = function() {}
+
