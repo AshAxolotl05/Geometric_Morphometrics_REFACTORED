@@ -1,4 +1,6 @@
 library('r2r')
+library('Morpho')
+library('geomorph')
 
 #makes a hashmap to store the sulci for each species + surface combination
 makeSulci = function() {
@@ -49,7 +51,7 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   # get starting point
   start = curve[1,]
 
-  temp = data.frame(digit.curves(start, curve, numpts - 2, closed = FALSE)) #98 semi landmarks = start + end
+  temp = data.frame(digit.curves(start, curve, (numpts - 2), closed = FALSE)) #semi lm + start + end
 
   # reintroduce metadata
   temp$species = species
@@ -78,7 +80,7 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
 )
 
   # if a reference hashmap was provided, take note. Otherwise all sulci are resampled to 100 points
-  REFERENCE = is.null(sulcalLengths)
+  REFERENCE = !is.null(sulcalLengths)
   numpoints = 100
 
   for (species in list('macaque', 'human')) {
@@ -92,10 +94,7 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
             }
 
             #resample
-            tryCatch({resampled = rbind(resample(sulcus, subject, species, hemi, time, df, numpoints), resampled)},
-                     error = function(e) {
-                       cat(conditionMessage(e), '\n')
-                     })
+            resampled = rbind(resample(sulcus, subject, species, hemi, time, df, numpoints), resampled)
           }
         }
 
@@ -108,10 +107,7 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
             }
 
             #resample
-            tryCatch({resampled = rbind(resample(sulcus, subject, species, 'central', time, df, numpoints), resampled)},
-                     error = function(e) {
-                       cat(conditionMessage(e), '\n')
-                     })
+            resampled = rbind(resample(sulcus, subject, species, 'central', time, df, numpoints), resampled)
           }
         }
       }
