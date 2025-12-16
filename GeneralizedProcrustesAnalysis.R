@@ -106,8 +106,73 @@ excludeOutliers= function(outliers){
   return(filteredDf)
 }
 
+# basic euclidean distance function for calculating sulcal lengths
+euclidDist = function(x1, y1, z1, x2, y2, z2) {
+  return(sqrt((x2-x1)**2 + (y2- y1)**2 + (z2-z1)**2))
+}
+
+# calculates sulcal length by summing the euclidean distance between every point along the curve
+curveDist = function(i1, i2, referenceMatrix) {
+  sum = 0
+  for(i in seq(i1, i2 - 1)) {
+    sum = sum + euclidDist(referenceMatrix[i,][1], referenceMatrix[i,][2], referenceMatrix[i,][3],
+                           referenceMatrix[i+1,][1], referenceMatrix[i+1,][2], referenceMatrix[i+1,][3])
+  }
+  return(sum)
+}
+
+# Create a reference hashmap of sulcal lengths
+findSulcalLengths = function (surface, sulci, referenceMatrix) {
+  #Make hasmap containing all sulci and their lengths in the consensus configuration
+  sulcalLengths = hashmap()
+
+  # Handle pial vs white matter
+  if (surface == 'pi') {
+    i = 1
+
+    #handle median longitudinal sulcus
+    sulcMap = hashmap()
+    for (sulcus in list('fl', 'ol', 'pl')) {
+      length =  curveDist(i, i+99, referenceMatrix)
+      sulcMap[[sulcus]] = length
+      i = i + 100
+    }
+    sulcalLengths[['central']] = sulcMap
+    i = 301 # keep track of landmark number
+  } else {
+    i = 1 # keep track of landmark number
+  }
+
+  #handle left and right hemispheres
+  for (hemi in list('lh', 'rh')) {
+    sulcMap = hashmap()
+
+    for (sulcus in sort(unlist(sulci))) {
+      length =  curveDist(i, i+99, referenceMatrix)
+      i = i + 100
+      sulcMap[[sulcus]] = length
+    }
+    sulcalLengths[[hemi]] = sulcMap
+  }
+
+  #translate length into number of points based on central sulcus length
+  ratio = 100 / sulcalLengths[['lh']][['ce']]
+
+  # calculate number of points to resample each sulcus to
+  for (hemi in keys(sulcalLengths)) {
+    for (sulcus in keys(sulcalLengths[[hemi]])) {
+      sulcalLengths[[hemi]][[sulcus]] = round(sulcalLengths[[hemi]][[sulcus]] * ratio)
+    }
+  }
+
+  return(sulcalLengths)
+}
+
 # Transforms the dataframe into a p x k x n array compatible with geomorph functions
 transformToArray = function(df, num) {
+  # order df; this is crucial to measuring sulcal lengths later
+  df = df[order(df$subject, df$time, df$species, df$hemisphere, df$sulcus),]
+
   #format array
   data = arrayspecs(cbind(df$x, df$y, df$z), num, 3)
 
@@ -132,5 +197,38 @@ transformToArray = function(df, num) {
 }
 
 # Performs Generalized Procrustes Superimposition, minimizing bending energy and utilizing sliding semi landmarks
-procrustes = function() {}
+procrustes = function(num, data, sulcalLengths=NULL) {
+  #handle semilandmarks (num = number of landmarks)
+  semiLm = c() # landmark to be slid
+  slideStart = c() # previous lm
+  slideEnd = c()  # next lm
+
+  # If given no reference for sulcus lengths, there is a "real" lm at the start and end of every 100 pt curve
+  if (is.NULL(sulcalLengths)) {
+    numSemi = num - (2 * num / 100)
+
+    for (i in 1:num) {
+      if (i %% 100 != 0 & i %% 100 != 1) {
+        semiLm = c(semiLm, i)
+        slideStart = c(slideStart, i - 1)
+        slideEnd = c(slideEnd, i + 1)
+      }
+    }
+  } else { # OTHERWISE use sulcalLengths as reference
+    hemi = sort(keys())
+    sulci = sort(keys(sulcalLengths[['lh']]))
+
+
+
+
+
+  }
+
+  sliders <- cbind(slideStart, semiLm, slideEnd)
+
+  gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE,
+   max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
+
+  return(gpa)
+}
 
