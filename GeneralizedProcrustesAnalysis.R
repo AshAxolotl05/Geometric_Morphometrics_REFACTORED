@@ -215,19 +215,36 @@ procrustes = function(num, data, sulcalLengths=NULL) {
       }
     }
   } else { # OTHERWISE use sulcalLengths as reference
-    hemi = sort(keys())
+    hemi = sort(keys(sulcalLengths))
     sulci = sort(keys(sulcalLengths[['lh']]))
 
-
-
-
-
+    i = 1
+    for (hem in hemi) {
+      if(hem == 'central') {
+        for (sulcus in list('fl', 'ol', 'pl')) {
+          for(j in i + 1:sulcalLengths[['central']][['sulcus']] - 1) {
+          semiLm = c(semiLm, i)
+          slideStart = c(slideStart, i - 1)
+          slideEnd = c(slideEnd, i + 1)
+          }
+          i = i + sulcalLengths[['central']][['sulcus']] # iterate i to maintain overall landmark count
+        }
+      } else {
+        for(sulcus in sulci) {
+          for(j in i + 1:sulcalLengths[['central']][['sulcus']] - 1) {
+          semiLm = c(semiLm, i)
+          slideStart = c(slideStart, i - 1)
+          slideEnd = c(slideEnd, i + 1)
+          }
+          i = i + sulcalLengths[['central']][['sulcus']] # iterate i to maintain overall landmark count
+        }
+      }
+    }
   }
 
   sliders <- cbind(slideStart, semiLm, slideEnd)
 
-  gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE,
-   max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
+  gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE, max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
 
   return(gpa)
 }
