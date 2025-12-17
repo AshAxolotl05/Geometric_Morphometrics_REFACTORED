@@ -122,6 +122,7 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   colnames(resampled)[colnames(resampled) == "X2"] ="y"
   colnames(resampled)[colnames(resampled) == "X3"] ="z"
 
+  resampled$specimen = paste(resampled$subject, resampled$time, resampled$species, sep='_')
   return(resampled)
 }
 
@@ -240,6 +241,7 @@ transformToArray = function(df, num) {
     Dimension = c("X", "Y", "Z"),       # names for dimensions
     Specimen = ids      # names for specimens
   )
+
 
   return(data)
 }

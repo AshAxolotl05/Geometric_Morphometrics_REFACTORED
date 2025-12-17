@@ -6,6 +6,9 @@ Read CSV, Load all packages And Configure Analysis
 ```{r}
 # read packages
 source('GeneralizedProcrustesAnalysis.R')
+source("StatisticalResults.R")
+library('geomorph')
+library('ggplot2')
 ```
 
 ```{r}
@@ -51,6 +54,46 @@ data = transformToArray(resampled, num)
 GPA = procrustes(num, data, sulcalLengths=ref)
 plot3d(GPA$consensus)
 
-
 ```
 
+PCA AND Scree Plot
+```{r, echo=FALSE}
+#PCA
+GPA = addFactors(GPA, dimnames(data)[[3]])
+
+PCA = gm.prcomp(GPA$coords)
+
+summary(PCA)
+
+#Plot pca
+
+#create a color to age group translation table for scatterplots
+colorcor = data.frame(cbind(colors = c('red', 'royalblue', 'green3', 'black'), age = c('(Infant)', '(Toddler)', '(Childhood)', '(Late Childhood)')))
+brainColors = sapply(GPA$age_group, function(x) colorcor$colors[colorcor$age == x])
+
+plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA')
+legend('topright', pch=c(0,1), legend=unique(GPA$species))
+legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+
+plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA', axis1=2, axis2 =3)
+legend('topright', pch=c(0,1), legend=unique(GPA$species))
+legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+
+plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA', axis1=3, axis2 =4)
+legend('topright', pch=c(0,1), legend=unique(GPA$species))
+legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+
+#Scree plot
+scree_data = data.frame(
+  Component = 1:length(PCA$sdev),
+  Variance = PCA$sdev^2 / sum(PCA$sdev^2)
+)
+
+
+ggplot(scree_data, aes(x = Component, y = Variance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  xlab("Principal Components") +
+  ylab("Proportion of Variance Explained") +
+  theme_minimal()
+
+```
