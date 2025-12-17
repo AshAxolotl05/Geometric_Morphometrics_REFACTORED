@@ -65,7 +65,7 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
 }
 
 #Handles all resampling for a given surface (White or Gray matter)
-resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
+resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   #create data frame to store resampled points
   resampled = data.frame(
   x = numeric(),
@@ -78,6 +78,8 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
   sulcus = character(),
   hemisphere = character()
 )
+
+  sulci = getSulci(surface, species)
 
   # if a reference hashmap was provided, take note. Otherwise all sulci are resampled to 100 points
   REFERENCE = !is.null(sulcalLengths)
@@ -95,6 +97,7 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
 
             #resample
             resampled = rbind(resample(sulcus, subject, species, hemi, time, df, numpoints), resampled)
+
           }
         }
 
@@ -103,7 +106,7 @@ resampleCurves = function(df, surface, sulci, sulcalLengths=NULL) {
 
             #handle intitial vs second resampling
             if(REFERENCE) {
-              numpoints = sulcalLengths[[hemi]][[sulcus]]
+              numpoints = sulcalLengths[['central']][[sulcus]]
             }
 
             #resample
@@ -151,7 +154,9 @@ curveDist = function(i1, i2, referenceMatrix) {
 }
 
 # Create a reference hashmap of sulcal lengths
-findSulcalLengths = function (surface, sulci, referenceMatrix) {
+findSulcalLengths = function (surface, species, referenceMatrix) {
+  sulci = getSulci(surface, species)
+
   #Make hasmap containing all sulci and their lengths in the consensus configuration
   sulcalLengths = hashmap()
 
@@ -195,6 +200,20 @@ findSulcalLengths = function (surface, sulci, referenceMatrix) {
   }
 
   return(sulcalLengths)
+}
+
+# Computes the total number of landmarks from a reference hashmap of sulcal lengths
+sumlm = function(lengths) {
+  sum = 0
+
+  #iterate over map
+  for(key in keys(lengths)) {
+    for (length in keys(lengths[[key]])) {
+      sum = sum + lengths[[key]][[length]]
+    }
+  }
+
+  return(sum)
 }
 
 # Transforms the dataframe into a p x k x n array compatible with geomorph functions
@@ -244,34 +263,37 @@ procrustes = function(num, data, sulcalLengths=NULL) {
       }
     }
   } else { # OTHERWISE use sulcalLengths as reference
-    hemi = sort(keys(sulcalLengths))
-    sulci = sort(keys(sulcalLengths[['lh']]))
+    hemi = sort(unlist(keys(sulcalLengths)))
+    sulci = sort(unlist(keys(sulcalLengths[['lh']])))
 
     i = 1
     for (hem in hemi) {
       if(hem == 'central') {
         for (sulcus in list('fl', 'ol', 'pl')) {
-          for(j in i + 1:sulcalLengths[['central']][['sulcus']] - 1) {
-          semiLm = c(semiLm, i)
-          slideStart = c(slideStart, i - 1)
-          slideEnd = c(slideEnd, i + 1)
+          for(j in (i + 1):(i + sulcalLengths[['central']][[sulcus]] - 1)) {
+            semiLm = c(semiLm, j)
+            slideStart = c(slideStart, j - 1)
+            slideEnd = c(slideEnd, j + 1)
           }
-          i = i + sulcalLengths[['central']][['sulcus']] # iterate i to maintain overall landmark count
+          if(i == 1) {i = 0} # handle the first landmark incrementation differently
+          i = i + sulcalLengths[['central']][[sulcus]] + 1 # iterate i to maintain overall landmark count
         }
       } else {
         for(sulcus in sulci) {
-          for(j in i + 1:sulcalLengths[['central']][['sulcus']] - 1) {
-          semiLm = c(semiLm, i)
-          slideStart = c(slideStart, i - 1)
-          slideEnd = c(slideEnd, i + 1)
+          for(j in (i + 1):(i + sulcalLengths[[hem]][[sulcus]] - 1)) {
+          semiLm = c(semiLm, j)
+          slideStart = c(slideStart, j - 1)
+          slideEnd = c(slideEnd, j + 1)
           }
-          i = i + sulcalLengths[['central']][['sulcus']] # iterate i to maintain overall landmark count
+          if(i == 1) {i = 0} # handle the first landmark incrementation differently
+          i = i + sulcalLengths[[hem]][[sulcus]] + 1 # iterate i to maintain overall landmark count
         }
       }
     }
   }
 
   sliders <- cbind(slideStart, semiLm, slideEnd)
+  print(sliders)
   gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE, max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
   return(gpa)
 }
