@@ -33,12 +33,24 @@ Resample Sulci to 100 Points and Run Procrustes Analysis
 ```{r}
 num = as.numeric(readline(prompt="How many landmarks are there?"))
 
-resampled = resampleCurves(df, surface, getSulci(surface, species))
+resampled = resampleCurves(df, surface, species)
 data = transformToArray(resampled, num)
-```
 
-```{r}
 GPA = procrustes(num, data)
 plot3d(GPA$consensus)
+```
+
+Resample Sulci again based on Sulcal Length
+```{r}
+ref = findSulcalLengths(surface, species, GPA$consensus)
+
+resampled = resampleCurves(df, surface, species, sulcalLengths=ref)
+num = sumlm(ref)
+data = transformToArray(resampled, num)
+
+GPA = procrustes(num, data, sulcalLengths=ref)
+plot3d(GPA$consensus)
+
+
 ```
 
