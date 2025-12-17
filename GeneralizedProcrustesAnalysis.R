@@ -253,8 +253,7 @@ procrustes = function(num, data, sulcalLengths=NULL) {
 
   # If given no reference for sulcus lengths, there is a "real" lm at the start and end of every 100 pt curve
   if (is.null(sulcalLengths)) {
-    numSemi = num - (2 * num / 100)
-
+    #there should be a 'real' lm every 100 lms
     for (i in 1:num) {
       if (i %% 100 != 0 & i %% 100 != 1) {
         semiLm = c(semiLm, i)
@@ -263,37 +262,28 @@ procrustes = function(num, data, sulcalLengths=NULL) {
       }
     }
   } else { # OTHERWISE use sulcalLengths as reference
-    hemi = sort(unlist(keys(sulcalLengths)))
-    sulci = sort(unlist(keys(sulcalLengths[['lh']])))
+    # get a list of 'real' landmarks based on lengths
+    reallm = c()
+    i = 0
 
-    i = 1
-    for (hem in hemi) {
-      if(hem == 'central') {
-        for (sulcus in list('fl', 'ol', 'pl')) {
-          for(j in (i + 1):(i + sulcalLengths[['central']][[sulcus]] - 1)) {
-            semiLm = c(semiLm, j)
-            slideStart = c(slideStart, j - 1)
-            slideEnd = c(slideEnd, j + 1)
-          }
-          if(i == 1) {i = 0} # handle the first landmark incrementation differently
-          i = i + sulcalLengths[['central']][[sulcus]] + 1 # iterate i to maintain overall landmark count
-        }
-      } else {
-        for(sulcus in sulci) {
-          for(j in (i + 1):(i + sulcalLengths[[hem]][[sulcus]] - 1)) {
-          semiLm = c(semiLm, j)
-          slideStart = c(slideStart, j - 1)
-          slideEnd = c(slideEnd, j + 1)
-          }
-          if(i == 1) {i = 0} # handle the first landmark incrementation differently
-          i = i + sulcalLengths[[hem]][[sulcus]] + 1 # iterate i to maintain overall landmark count
-        }
+    for(hemi in sort(unlist(keys(sulcalLengths)))) {
+      for (sulcus in sort(unlist(keys(sulcalLengths[[hemi]])))) {
+        reallm = c(reallm, i + 1, i + sulcalLengths[[hemi]][[sulcus]])
+        i = i + sulcalLengths[[hemi]][[sulcus]]
       }
+    }
+
+    # slide all landmarks that are not 'real' landmarks between the previous and next landmark
+    for (i in 1:num) {
+          if (!(i %in% reallm)) {
+            semiLm = c(semiLm, i)
+            slideStart = c(slideStart, i - 1)
+            slideEnd = c(slideEnd, i + 1)
+        }
     }
   }
 
   sliders <- cbind(slideStart, semiLm, slideEnd)
-  print(sliders)
   gpa = gpagen(data, curves = sliders, surfaces = NULL, PrinAxes = TRUE, max.iter = NULL, ProcD = FALSE, Proj = TRUE, print.progress = FALSE)
   return(gpa)
 }
