@@ -53,6 +53,7 @@ data = transformToArray(resampled, num)
 
 GPA = procrustes(num, data, sulcalLengths=ref)
 plot3d(GPA$consensus)
+makeGif('ProcrustesCombined', species, surface)
 
 ```
 
@@ -89,11 +90,49 @@ scree_data = data.frame(
   Variance = PCA$sdev^2 / sum(PCA$sdev^2)
 )
 
-
 ggplot(scree_data, aes(x = Component, y = Variance)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   xlab("Principal Components") +
   ylab("Proportion of Variance Explained") +
   theme_minimal()
+
+```
+
+Macaque vs Human Comparisons (FOR COMBINED ANALYSIS ONLY)
+```{r}
+
+speciesMatrix = getBySpeciesConsensus(GPA)
+human = speciesMatrix[,,1]
+macaque = speciesMatrix[,,2]
+
+plot3d(macaque, col = 'black')
+points3d(human, col = 'red', add=T)
+
+r3dDefaults$windowRect = c(100, 100, 1000, 1000)
+
+deformGrid3d(macaque, human, type='p', show=1:2, col1='lightblue', col2='pink')
+makeGif('deform3DCombined', species, surface)
+
+transformConfigurations(macaque, human)
+
+```
+
+Deviation along Principle Components
+```{r}
+for(i in 1:4) {
+  deviationAlongPC(PCA, i)
+  makeGif(paste0('MinMaxPC', i), species, surface)
+}
+```
+
+ANOVA and PC correlation to centroid size
+```{r}
+# ANOVA
+if(species == 'combined') {
+  multivariateAnalysis(GPA, species=TRUE)
+} else { multivariateAnalysis(GPA)}
+
+# PC correlation to centroid size
+pcToSize(PCA, GPA)
 
 ```

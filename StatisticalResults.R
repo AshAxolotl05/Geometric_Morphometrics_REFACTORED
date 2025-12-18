@@ -1,14 +1,16 @@
 library('rgl')
 library('geomorph')
 library('Morpho')
+library('abind')
+library('magick')
 
 # save last rgl window as a gif
-makeGif = function(name, surface) {
+makeGif = function(name, species, surface) {
   r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 
   play3d(spin3d(axis = c(0, 0, 1), rpm = 5), duration = 2)
   movie3d(
-    movie=paste(name, surface, sep='_'),
+    movie=paste(name, species, surface, sep='_'),
     spin3d(axis = c(0, 0, 1), rpm = 5), duration = 10,
     type = "gif", clean = T, fps=10, webshot=F, dir='.')
 }
@@ -79,20 +81,20 @@ addFactors = function (gpa, specimens) {
 }
 
 
-pcToSize = function(PCA) {
+pcToSize = function(PCA, gpa) {
 
   #look for correlation to centroid size
   pc1=PCA$x[, 1]  #for PC1
-  print(cor.test(pc1,gpa_aligned$Csize))
+  print(cor.test(pc1,gpa$Csize))
 
   pc2=PCA$x[, 2] #for PC2
-  print(cor.test(pc2,gpa_aligned$Csize))
+  print(cor.test(pc2,gpa$Csize))
 
   pc3=PCA$x[, 3] #for PC2
-  print(cor.test(pc3,gpa_aligned$Csize))
+  print(cor.test(pc3,gpa$Csize))
 
   pc4=PCA$x[, 4] #for PC2
-  print(cor.test(pc4,gpa_aligned$Csize))
+  print(cor.test(pc4,gpa$Csize))
 }
 
 
@@ -102,19 +104,62 @@ multivariateAnalysis = function(gpa, species=FALSE) {
 
   if(species) {
     fit = procD.lm(gpa$coords~gpa$age_group+gpa$species+log(gpa_aligned$Csize), data=gdf)
-    anova(fit)
+    print(anova(fit))
 
     #look for interaction between species and allometry
     modelInteraction<-procD.lm(gpa$coords~gpa$species*log(gpa$Csize), data = gdf)
-    anova(modelInteraction)
+    print(anova(modelInteraction))
   } else {
     fit = procD.lm(gpa$coords~gpa$age_group+log(gpa_aligned$Csize), data=gdf)
-    anova(fit)
+    print(anova(fit))
 
     #look for interaction between age and allometry
     modelInteraction<-procD.lm(gpa$coords~gpa$age_group*log(gpa$Csize), data = gdf)
-    anova(modelInteraction)
+    print(anova(modelInteraction))
   }
 
   return(modelInteraction)
+}
+
+getBySpeciesConsensus = function(gpa) {
+  humanMatrix =  gpa$coords[,,grepl('human', dimnames(gpa$coords)[[3]])]
+  macaqueMatrix =  gpa$coords[,,grepl('macaque', dimnames(gpa$coords)[[3]])]
+
+  # get consensus (mean configuration)
+  humanConsensus = apply(humanMatrix, 1:2, function(coord) { mean(coord) })
+
+  macaqueConsensus = apply(macaqueMatrix, 1:2, function(coord) { mean(coord) })
+
+  return(abind(macaqueConsensus, humanConsensus, along=3))
+}
+
+transformConfigurations = function(config1, config2, path='.') {
+
+#transform macaque to human
+warpmovie3d(config1, config2, 15, col = 'green', palindrome = TRUE,
+            folder = '.', movie = paste('combined', surface, 'consensusPoints', sep='_'))
+
+#merge pngs to gif
+list.files(path=path,
+           pattern = '*.png', full.names = TRUE) %>%
+        image_read() %>% # reads each path file
+        image_join() %>% # joins image
+        image_animate(fps=4) %>% # animates, can opt for number of loops
+        image_write(format='gif', path=paste(paste('combined', surface, 'consensusPoints', sep='_'), '.gif', sep='')) # write to current dir
+
+#teardown pngs
+list.files(path=path,
+           pattern = '*.png', full.names = TRUE) %>% unlink()
+}
+
+deviationAlongPC = function(pca, pc=1) {
+  comp = paste0('shapes.comp', pc)
+
+  min = get('min', get(comp, pca$shapes))
+  max = get('max', get(comp, pca$shapes))
+
+  plot3d(min, col='blue')
+  #plot3d(mean, col='black', add=TRUE)
+  points3d(max, col='green', add=TRUE)
+
 }
