@@ -5,6 +5,9 @@ library('abind')
 library('magick')
 library('roxygen2')
 
+# Contains functions based around the rgl, Morpho and geomorph packages to perform multiple statistical tests,
+# plot visual representations of shape variation, and save results as GIFs
+
 #' Saves last rgl window as a GIF int he current directory.
 #'
 #' @param name A base name to use for the gif, not including any surface or species information.
