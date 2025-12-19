@@ -184,12 +184,12 @@ Allometry describes the variation in shape that occurs as size changes. Allometr
 
 [plotAllometry documentation](https://www.rdocumentation.org/packages/geomorph/versions/4.0.10/topics/plotAllometry)
 ```{r}
-plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(0,1)[gdf$species])
-legend('topright', pch=c(0,1), legend=unique(GPA$species))
-legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(1,2)[gdf$species])
+legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
+legend('topleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 
-plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='RegScore',col=brainColors, pch=c(0,1)[gdf$species])
-legend('topright', pch=c(0,1), legend=unique(GPA$species))
-legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='RegScore',col=brainColors, pch=c(1,2)[gdf$species])
+legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
+legend('topleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 ```
