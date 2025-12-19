@@ -10,6 +10,7 @@ source('GeneralizedProcrustesAnalysis.R')
 source("StatisticalResults.R")
 library('geomorph')
 library('ggplot2')
+
 ```
 
 # Read CSV and Configure Analysis
@@ -27,14 +28,17 @@ if (species == 'human' || species == 'macaque') {
 surface = readline(prompt="Chose gray matter (pi) or white matter (wh)")
 df = df[df$gm_or_wm == surface,]
 
+r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 ```
 
 # Handle Outliers
 Some specimens need to be excluded from the analysis for various reasons. This includes specimens with faulty segmentations (25_1month_macaque) or sulci missing from the tracing(14_20months_human). These two are most important not to catch (code will produce downstream errors if subjects with missing sulci are included).
 
 If a few specimens have the potential to drastically skew results, as shown by plotOutliers and the PCA plots later on, they can also be excluded here.
+
+human Pial: '19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human'
 ```{r}
-OUTLIERS = list('18_92months_human', '17_78months_human', '19_9months_human', '24_87months_human', '25_89months_human', '25_1month_macaque', '14_20months_human')
+OUTLIERS = list('19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
@@ -45,7 +49,7 @@ Landmark data was then reorganized into a p x k x n array where p is the number 
 
 Next, Generalized Procrustes Analysis was performed using functions from the geomorph package. Different subjects are superimposed over each other and aligned to find a mean ‘consensus’ position of all landmarks. Landmark coordinates will be scaled, translated, and/or rotated to minimize the distance between them. Then the variation from the consensus shape is measured for every subject. Landmark points along the sulci were considered true or 'real' landmarks if they corresponded to a biological landmark; here, this was the start and end of each sulcus. All other points on the curve were considered semi-landmarks. To perform the Procrustes alignment, the index of each sliding semi-landmark was identified based on all sulci having been resampled to 100 points. This information was used slide the semi-landmarks appropriately along the curve of each sulcus. 
 
-GPA was performed by prioritizing configuratiosn that minimize bending energy rather than procrustes distance in order to create continuous sulcal curves. The differences between the two methods are well explained [here](https://pmc.ncbi.nlm.nih.gov/articles/PMC2100233/)
+GPA was performed by prioritizing configurations that minimize bending energy rather than procrustes distance in order to create continuous sulcal curves. The differences between the two methods are well explained [here](https://pmc.ncbi.nlm.nih.gov/articles/PMC2100233/)
 
 Further explanation of GPA and semi-landmarks can be found [here](https://digitalcommons.pace.edu/cgi/viewcontent.cgi?article=1003&context=oer), [here](http://www.italian-journal-of-mammalogy.it/pdf-77248-13401?filename=Semilandmarks_%20a%20method.pdf), and here[https://rdrr.io/github/geomorphR/geomorph/man/digit.curves.html].
 
@@ -73,11 +77,10 @@ num = sumlm(ref)
 data = transformToArray(resampled, num)
 
 GPA = procrustes(num, data, sulcalLengths=ref)
+summary(GPA)
 plot3d(GPA$consensus)
 makeGif('Procrustes', species, surface)
-
 ```
-
 # PCA AND Scree Plot
 Principal component analysis breaks down the total shape variation into separate components. With so many components, many are responsible for very small amounts of variation. The first four principal components were plotted against for this analysis. The center cross on the plot represents the consensus configuration after GPA.
 
@@ -97,16 +100,16 @@ summary(PCA)
 colorcor = data.frame(cbind(colors = c('red', 'royalblue', 'green3', 'black'), age = c('(Infant)', '(Toddler)', '(Childhood)', '(Late Childhood)')))
 brainColors = sapply(GPA$age_group, function(x) colorcor$colors[colorcor$age == x])
 
-plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA')
-legend('topright', pch=c(0,1), legend=unique(GPA$species))
+plot(PCA, col=brainColors, pch=c(1,2)[GPA$species], main='PCA')
+legend('topright', pch=c(1,2), legend=unique(GPA$species))
 legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
-plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA', axis1=2, axis2 =3)
-legend('topright', pch=c(0,1), legend=unique(GPA$species))
+plot(PCA, col=brainColors, pch=c(1,2)[GPA$species], main='PCA', axis1=2, axis2 =3)
+legend('topright', pch=c(1,2), legend=unique(GPA$species))
 legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
-plot(PCA, col=brainColors, pch=c(0,1)[GPA$species], main='PCA', axis1=3, axis2 =4)
-legend('topright', pch=c(0,1), legend=unique(GPA$species))
+plot(PCA, col=brainColors, pch=c(1,2)[GPA$species], main='PCA', axis1=3, axis2 =4)
+legend('topright', pch=c(1,2), legend=unique(GPA$species))
 legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 #Scree plot
@@ -162,13 +165,14 @@ Centroid size is a surrogate measure for overall siz calculated by the sum of th
 Correlation between principal component scores and centroid size was also examined for the first 4 principal components.
 
 ```{r, echo=FALSE}
-# Make geomorph data frame
-gdf = geomorph.data.frame(GPA, age=GPA$age_group, species=GPA$species, subject=GPA$subject)
-
 # ANOVA
 if(species == 'combined') {
-  fit = multivariateAnalysis(GPA, species=TRUE)
-} else { fit = multivariateAnalysis(GPA)}
+  gdf = geomorph.data.frame(GPA, age=GPA$age_group, species=GPA$species, subject=GPA$subject) # Make geomorph data frame
+  fit = multivariateAnalysis(gdf,GPA, species=TRUE)
+} else { 
+  gdf = geomorph.data.frame(GPA, age=GPA$age_group, subject=GPA$subject) # Make geomorph data frame
+  fit = multivariateAnalysis(gdf,GPA)
+}
 
 # PC correlation to centroid size
 pcToSize(PCA, GPA)

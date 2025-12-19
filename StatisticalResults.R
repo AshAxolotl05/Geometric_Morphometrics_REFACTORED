@@ -14,7 +14,6 @@ library('roxygen2')
 #' @param species The species that was plotted.
 #' @param surface The surface (white matter or gray matter) that was plotted
 makeGif = function(name, species, surface) {
-  r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 
   play3d(spin3d(axis = c(0, 0, 1), rpm = 5), duration = 2)
   movie3d(
@@ -120,14 +119,14 @@ multivariateAnalysis = function(gdf, gpa, species=FALSE) {
   #effects of age group, species and centroid size on shape
 
   if(species) {
-    fit = procD.lm(gpa$coords~gpa$age_group+gpa$species+log(gpa_aligned$Csize), data=gdf)
+    fit = procD.lm(gpa$coords~gpa$age_group+gpa$species+log(gpa$Csize), data=gdf)
     print(anova(fit))
 
     #look for interaction between species and allometry
     modelInteraction<-procD.lm(gpa$coords~gpa$species*log(gpa$Csize), data = gdf)
     print(anova(modelInteraction))
   } else {
-    fit = procD.lm(gpa$coords~gpa$age_group+log(gpa_aligned$Csize), data=gdf)
+    fit = procD.lm(gpa$coords~gpa$age_group+log(gpa$Csize), data=gdf)
     print(anova(fit))
 
     #look for interaction between age and allometry

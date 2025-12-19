@@ -64,7 +64,7 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   }
 
   # resample curve
-  temp = data.frame(resampleCurve(temp, n=200))
+  temp = data.frame(resampleCurve(temp, n=300))
   curve = cbind(temp$X1, temp$X2, temp$X3)
 
   # get starting point
