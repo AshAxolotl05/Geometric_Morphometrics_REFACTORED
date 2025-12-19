@@ -98,9 +98,8 @@ pcToSize = function(PCA, gpa) {
 }
 
 
-multivariateAnalysis = function(gpa, species=FALSE) {
+multivariateAnalysis = function(gdf, gpa, species=FALSE) {
   #effects of age group, species and centroid size on shape
-  gdf <- geomorph.data.frame(gpa, age=gpa$age_group, species=gpa$species, subject=gpa$subject)
 
   if(species) {
     fit = procD.lm(gpa$coords~gpa$age_group+gpa$species+log(gpa_aligned$Csize), data=gdf)
@@ -159,7 +158,6 @@ deviationAlongPC = function(pca, pc=1) {
   max = get('max', get(comp, pca$shapes))
 
   plot3d(min, col='blue')
-  #plot3d(mean, col='black', add=TRUE)
   points3d(max, col='green', add=TRUE)
 
 }

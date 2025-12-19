@@ -2,7 +2,8 @@
 title: "Geometric Morphometrics"
 output: html_notebook
 ---
-Read CSV, Load all packages And Configure Analysis
+# Load all packages 
+Geomorph and ggplot2 are necessary for the following code to run. Additionally, the complex logic behind generalized procrustes analysis and some of the statistical tests are stored in two separate files for readability: GeneralizedProcrustesAnalysis.R and StatisticalResults.R. These functions the different species and surfaces while keeping code modular and easy to modify for use with other non-human primates down the line.
 ```{r}
 # read packages
 source('GeneralizedProcrustesAnalysis.R')
@@ -11,7 +12,9 @@ library('geomorph')
 library('ggplot2')
 ```
 
-```{r}
+# Read CSV and Configure Analysis
+This notebook relies on a combined_tracings.csv file, which compiles all of the tracing data for humans and macaques from the original .json files. The code to assemble this should be either within the same respository and/or on the hard drive.
+```{r, echo=FALSE}
 #read csv
 df = read.csv("combined_tracings.csv")
 
@@ -26,14 +29,29 @@ df = df[df$gm_or_wm == surface,]
 
 ```
 
-Handle Outliers
+# Handle Outliers
+Some specimens need to be excluded from the analysis for various reasons. This includes specimens with faulty segmentations (25_1month_macaque) or sulci missing from the tracing(14_20months_human). These two are most important not to catch (code will produce downstream errors if subjects with missing sulci are included).
+
+If a few specimens have the potential to drastically skew results, as shown by plotOutliers and the PCA plots later on, they can also be excluded here.
 ```{r}
 OUTLIERS = list('18_92months_human', '17_78months_human', '19_9months_human', '24_87months_human', '25_89months_human', '25_1month_macaque', '14_20months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
-Resample Sulci to 100 Points and Run Procrustes Analysis
-```{r}
+# Resample Sulci to 100 Points and Run Procrustes Analysis
+For the first round of resampling, all sulci were resampled to 100 equidistant landmark points. 
+
+Landmark data was then reorganized into a p x k x n array where p is the number of landmarks, k is the number of dimensions (2 or 3), and n is the number of specimens in order to work with geomorph functions. Specimen ids were added based on the specimen column. Species and age information extracted from these ids are crucial to later analysis.
+
+Next, Generalized Procrustes Analysis was performed using functions from the geomorph package. Different subjects are superimposed over each other and aligned to find a mean ‘consensus’ position of all landmarks. Landmark coordinates will be scaled, translated, and/or rotated to minimize the distance between them. Then the variation from the consensus shape is measured for every subject. Landmark points along the sulci were considered true or 'real' landmarks if they corresponded to a biological landmark; here, this was the start and end of each sulcus. All other points on the curve were considered semi-landmarks. To perform the Procrustes alignment, the index of each sliding semi-landmark was identified based on all sulci having been resampled to 100 points. This information was used slide the semi-landmarks appropriately along the curve of each sulcus. 
+
+GPA was performed by prioritizing configuratiosn that minimize bending energy rather than procrustes distance in order to create continuous sulcal curves. The differences between the two methods are well explained [here](https://pmc.ncbi.nlm.nih.gov/articles/PMC2100233/)
+
+Further explanation of GPA and semi-landmarks can be found [here](https://digitalcommons.pace.edu/cgi/viewcontent.cgi?article=1003&context=oer), [here](http://www.italian-journal-of-mammalogy.it/pdf-77248-13401?filename=Semilandmarks_%20a%20method.pdf), and here[https://rdrr.io/github/geomorphR/geomorph/man/digit.curves.html].
+
+Finally, this code chunk displays a plot meant to help identify potential outliers to be excluded. The specimen ids will be printed out in the order they appear in the plot for ease of access.
+
+```{r, echo=FALSE}
 num = as.numeric(readline(prompt="How many landmarks are there?"))
 
 resampled = resampleCurves(df, surface, species)
@@ -41,10 +59,13 @@ data = transformToArray(resampled, num)
 
 GPA = procrustes(num, data)
 plot3d(GPA$consensus)
+
+plotOutliers(GPA$coords)
 ```
 
-Resample Sulci again based on Sulcal Length
-```{r}
+# Resample Sulci again based on Sulcal Length
+Resampling all sulci to 100 landmarks falsely gives each sulcus equal weight in determining the consensus configuration, even though there are large differences in length between some sulci. To deal with this, the length of each sulci (in arbitrary units) was found by measuring the consensus configuration after GPA. A ratio between sulcal length and landmarks was determined so that the central sulcus of the left hemisphere would be 100 landmarks, no matter what surface (white or gray matter) or species was being investigated. The original tracing points were resampled again, to a number of landmarks that reflected their relative length, and the GPA process was repeated as above.       
+```{r, echo=FALSE}
 ref = findSulcalLengths(surface, species, GPA$consensus)
 
 resampled = resampleCurves(df, surface, species, sulcalLengths=ref)
@@ -53,11 +74,15 @@ data = transformToArray(resampled, num)
 
 GPA = procrustes(num, data, sulcalLengths=ref)
 plot3d(GPA$consensus)
-makeGif('ProcrustesCombined', species, surface)
+makeGif('Procrustes', species, surface)
 
 ```
 
-PCA AND Scree Plot
+# PCA AND Scree Plot
+Principal component analysis breaks down the total shape variation into separate components. With so many components, many are responsible for very small amounts of variation. The first four principal components were plotted against for this analysis. The center cross on the plot represents the consensus configuration after GPA.
+
+Developmental age groups were kept consistent across humans and macaques by using the comparative milestones identified [here](https://pmc.ncbi.nlm.nih.gov/articles/PMC11383706/)
+
 ```{r, echo=FALSE}
 #PCA
 GPA = addFactors(GPA, dimnames(data)[[3]])
@@ -98,8 +123,11 @@ ggplot(scree_data, aes(x = Component, y = Variance)) +
 
 ```
 
-Macaque vs Human Comparisons (FOR COMBINED ANALYSIS ONLY)
-```{r}
+# Macaque vs Human Comparisons (FOR COMBINED ANALYSIS ONLY)
+To better understand the difference in shape between the macaque and human brain, a separate consensus configuration for each can be assembled. This is done AFTER GPA, so that Procrustes superimposition will take care of any difference in size and rotation between the two species' brains, and a mean configuration for each can be found by taking the mean of the x, y and z coordinate for each landmark across specimens.
+
+GIFs showing the transformation from macaque to human brain and the distance between each landmark in the human and macaque consensus configurations will be saved to the current directory. The macaque configuration will be visualized in blue, and the human in pink.
+```{r, echo=FALSE}
 
 speciesMatrix = getBySpeciesConsensus(GPA)
 human = speciesMatrix[,,1]
@@ -111,28 +139,53 @@ points3d(human, col = 'red', add=T)
 r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 
 deformGrid3d(macaque, human, type='p', show=1:2, col1='lightblue', col2='pink')
-makeGif('deform3DCombined', species, surface)
+makeGif('deform3D', species, surface)
 
 transformConfigurations(macaque, human)
 
 ```
 
-Deviation along Principle Components
-```{r}
+# Deviation along Principal Components
+The extreme ends of shape variation explained by a single principal component were plotted in blue (minimum) and green (maximum) for the first four principal components. The GIFs will save to the current directory.
+```{r, echo=FALSE}
 for(i in 1:4) {
   deviationAlongPC(PCA, i)
   makeGif(paste0('MinMaxPC', i), species, surface)
 }
 ```
 
-ANOVA and PC correlation to centroid size
-```{r}
+# ANOVA and PC correlation to centroid size
+Analysis of variance to examine the effect of centroid size, age group, and species(if a combined analysis, species is not included as a covariate otherwise) on overall shape. Centroid size was log transformed to account for the greater amount of size variation present within a species as the species get larger.
+
+Centroid size is a surrogate measure for overall siz calculated by the sum of the square of distance from the center of the specimen (centroid) to each landmark. The larger the brain, the more lateral sulci will be, and thus the distance from each landmark to the centroid increases.
+
+Correlation between principal component scores and centroid size was also examined for the first 4 principal components.
+
+```{r, echo=FALSE}
+# Make geomorph data frame
+gdf = geomorph.data.frame(GPA, age=GPA$age_group, species=GPA$species, subject=GPA$subject)
+
 # ANOVA
 if(species == 'combined') {
-  multivariateAnalysis(GPA, species=TRUE)
-} else { multivariateAnalysis(GPA)}
+  fit = multivariateAnalysis(GPA, species=TRUE)
+} else { fit = multivariateAnalysis(GPA)}
 
 # PC correlation to centroid size
 pcToSize(PCA, GPA)
 
+```
+
+# Allometry
+Allometry describes the variation in shape that occurs as size changes. Allometry was plotted using the plotAllotmetry function from geomorph. The interpretation is somewhat unclear.
+
+[plotAllometry documentation](https://www.rdocumentation.org/packages/geomorph/versions/4.0.10/topics/plotAllometry)
+```{r}
+plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(0,1)[gdf$species])
+legend('topright', pch=c(0,1), legend=unique(GPA$species))
+legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+
+
+plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='RegScore',col=brainColors, pch=c(0,1)[gdf$species])
+legend('topright', pch=c(0,1), legend=unique(GPA$species))
+legend('bottomleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 ```

@@ -1,8 +1,12 @@
 library('r2r')
 library('Morpho')
 library('geomorph')
+library('roxygen2')
 
-#makes a hashmap to store the sulci for each species + surface combination
+#' Makes a hashmap to store the sulci for each species(macaques, humans, and both combined)
+#' + surface(gray matter/pial as 'pi' and white matter as 'wm') combination.
+#' sulci are referred to by the same abbreviations as in the tracing spreadsheets.
+#'
 makeSulci = function() {
   map = hashmap()
 
@@ -30,12 +34,24 @@ makeSulci = function() {
   return(map)
 }
 
-# returns the relevant sulci for a given surface and species
+#' Returns the sulci that have been traced for a given surface (wm or pi) and species (macaque, human, or both 'combined') combination formatted as a list
+#'
+#' @param surface A string representing the surface, either 'pi' for gray matter or 'wm' for white matter
+#' @param species A string representing the species, either 'macaque', 'human', or 'combined' for sulci traced in both
+#'
 getSulci = function(surface, species) {
   return(SULCI[[surface]][[species]])
 }
 
-#Resamples a single sulcus to a given number of points
+#' Resamples a single sulcus to a given number of equidistant points along the curve
+#'
+#' @param sulcus A string abbreviation for the sulcus to be resampled. Use the same abbreviation as in the tracing spreadsheets.
+#' @param subject The subject number (ex 1, 12, 25) to reference. For humans, this information is saved in an excel spreadsheet alongside other ways to reference teh same subject
+#' @param species The species (human or macaque) to reference.
+#' @param hemi The hemisphere('lh' for left, 'rh' for right, 'central' for the median longitudinal sulcus) to reference.
+#' @param time A string representation of the time point to reference. Should be in the format '1month' '2weeks' '12months' etc.
+#' @param df The dataframe to use for looking up tracing points. This should have been read in from combined_tracings.csv or something with the same format.
+#' @param numpts The number of points to resample the sulcus to.
 resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   temp = df[(df$sulcus == sulcus & df$subject == subject & df$species == species & df$hemisphere == hemi & df$time == time), c('x', 'y','z')]
 
@@ -64,7 +80,13 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   return(temp)
 }
 
-#Handles all resampling for a given surface (White or Gray matter)
+#' Handles all resampling for a given surface (White or Gray matter)
+#'
+#' @param df The dataframe to use for looking up tracing points. This should have been read in from combined_tracings.csv or something with the same format.
+#' @param surface The surface ('pi' for gray matter or 'wm' for white matter) to investigate.
+#' @param species The species (human, macaque, or combined) to reference.
+#' @param sulcalLengths A hashmap or hasmaps formatted so that the first set of keys correspond to surface and the second set of keys correspond to sulcus
+#' that stores the number of points to resample each sulcus to. Null by default, in which case every sulcus will be resampled to 100 points.
 resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   #create data frame to store resampled points
   resampled = data.frame(
@@ -79,13 +101,17 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   hemisphere = character()
 )
 
+  # select the relevant sulci and species
   sulci = getSulci(surface, species)
+  if(species == 'combined') {
+    speciesList = list('macaque', 'human')
+  } else { speciesList = list(species)}
 
   # if a reference hashmap was provided, take note. Otherwise all sulci are resampled to 100 points
   REFERENCE = !is.null(sulcalLengths)
   numpoints = 100
 
-  for (species in list('macaque', 'human')) {
+  for (species in speciesList) {
     for (subject in unique(df[df$species == species, 'subject'])) {
       for (time in unique(df[df$species == species & df$subject == subject, 'time'])) {
         for (hemi in list('lh', 'rh')) {
@@ -126,7 +152,10 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   return(resampled)
 }
 
-# Excludes a given list of outliers from the analysis
+#' Excludes a given list of outliers from the analysis
+#'
+#' @param df The dataframe to exclude specimens from. This should have been read in from combined_tracings.csv or something with the same format. It must have a specimen column.
+#' @param outliers A list of specimen names in the format [subject]_[time]_[species] (1_12months_macaque) to exclude.
 excludeOutliers= function(df, outliers){
   filteredDf = df
   filteredDf$specimen = paste(filteredDf$subject, filteredDf$time, filteredDf$species, sep='_')
@@ -139,12 +168,23 @@ excludeOutliers= function(df, outliers){
   return(filteredDf)
 }
 
-# basic euclidean distance function for calculating sulcal lengths
+#' Basic euclidean distance function for calculating distance between two points in 3D
+#'
+#' @param x1 First x coordinate
+#' @param y1 First y coordinate
+#' @param z1 First z coordinate
+#' @param x2 Second x coordinate
+#' @param y2 Second y coordinate
+#' @param z2 Second z coordinate
 euclidDist = function(x1, y1, z1, x2, y2, z2) {
   return(sqrt((x2-x1)**2 + (y2- y1)**2 + (z2-z1)**2))
 }
 
-# calculates sulcal length by summing the euclidean distance between every point along the curve
+#' Calculates sulcal length by summing the euclidean distance between every point along the curve.
+#'
+#' @param i1 Row in the matrix of coordinates that coordesponds to the first landmark of this sulcus
+#' @param i2 Row in the matrix of coordinates that coordesponds to the last landmark of this sulcus
+#' @param referenceMatrix A 2D matrix of all sulcal coordinates (x, y, z) to use as a reference.
 curveDist = function(i1, i2, referenceMatrix) {
   sum = 0
   for(i in seq(i1, i2 - 1)) {
@@ -154,7 +194,11 @@ curveDist = function(i1, i2, referenceMatrix) {
   return(sum)
 }
 
-# Create a reference hashmap of sulcal lengths
+#' Create a reference hashmap of sulcal lengths
+#'
+#' @param surface The string surface ('pi for gray matter or 'wm' for white matter) to investigate.
+#' @param species The string species ('human' 'macaque', or 'combined') to investigate.
+#' @param referenceMatrix A 2D matrix of all sulcal coordinates (x, y, z) to use as a reference.
 findSulcalLengths = function (surface, species, referenceMatrix) {
   sulci = getSulci(surface, species)
 
@@ -203,7 +247,10 @@ findSulcalLengths = function (surface, species, referenceMatrix) {
   return(sulcalLengths)
 }
 
-# Computes the total number of landmarks from a reference hashmap of sulcal lengths
+#' Computes the total number of landmarks from a reference hashmap of sulcal lengths.
+#'
+#' @param lengths A hashmap of hashmaps formatted so that the first set of keys correspond to surface and the second set of keys correspond to sulcus
+#' that stores the number of points each  sulcus was resampled to.
 sumlm = function(lengths) {
   sum = 0
 
@@ -217,7 +264,12 @@ sumlm = function(lengths) {
   return(sum)
 }
 
-# Transforms the dataframe into a p x k x n array compatible with geomorph functions
+#' Transforms the dataframe into a p x k x n array compatible with geomorph functions,
+#' where p is the number of landmarks, k is the number of dimensions (2 or 3), and n is the number of specimens
+#'
+#' @param df A dataframe containing all landmark data properly labeled with sulcus, surface, time, subject, hemisphere and subject.
+#' It must have a specimen column in the format [subject]_[time]_[species] (1_12months_macaque).
+#' @param num Total number of landmarks.
 transformToArray = function(df, num) {
   # order df; this is crucial to measuring sulcal lengths later
   df = df[order(df$subject, df$time, df$species, df$hemisphere, df$sulcus),]
@@ -246,7 +298,13 @@ transformToArray = function(df, num) {
   return(data)
 }
 
-# Performs Generalized Procrustes Superimposition, minimizing bending energy and utilizing sliding semi landmarks
+#' Performs Generalized Procrustes Superimposition, minimizing bending energy and utilizing sliding semi landmarks.
+#' Returns an object of class gpagen from the geomorph package.
+#'
+#' @param num The number of landmarks.
+#' @param data A p x k x n array compatible with geomorph functions, where p is the number of landmarks, k is the number of dimensions (2 or 3), and n is the number of specimens
+#' @param sulcalLengths A hashmap or hasmaps formatted so that the first set of keys correspond to surface and the second set of keys correspond to sulcus
+#' that stores the number of points to resample each sulcus to. Null by default, in which case it assumes every sulcus was resampled to 100 points.
 procrustes = function(num, data, sulcalLengths=NULL) {
   #handle semilandmarks (num = number of landmarks)
   semiLm = c() # landmark to be slid
