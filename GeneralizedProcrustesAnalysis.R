@@ -3,6 +3,9 @@ library('Morpho')
 library('geomorph')
 library('roxygen2')
 
+# A collection of functions based on the Morpho and geomorph packages that handles most of the logic necessary for performing Generalized Procrustes Analysis.
+# These are designed to work for a macaque only, human only, or macaque-human cross species analysis, but could be modified to work with other NHP in the future.
+
 #' Makes a hashmap to store the sulci for each species(macaques, humans, and both combined)
 #' + surface(gray matter/pial as 'pi' and white matter as 'wm') combination.
 #' sulci are referred to by the same abbreviations as in the tracing spreadsheets.
