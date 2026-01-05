@@ -37,8 +37,9 @@ Some specimens need to be excluded from the analysis for various reasons. This i
 If a few specimens have the potential to drastically skew results, as shown by plotOutliers and the PCA plots later on, they can also be excluded here.
 
 human Pial: '19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human'
+human White: '17_78months_human', '24_87months_human', '18_92months_human', '14_20months_human'
 ```{r}
-OUTLIERS = list('19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human')
+OUTLIERS = list('17_78months_human', '24_87months_human', '18_92months_human', '14_20months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
