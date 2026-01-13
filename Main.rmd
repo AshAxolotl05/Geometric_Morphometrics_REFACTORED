@@ -32,14 +32,17 @@ r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 ```
 
 # Handle Outliers
-Some specimens need to be excluded from the analysis for various reasons. This includes specimens with faulty segmentations (25_1month_macaque) or sulci missing from the tracing(14_20months_human). These two are most important not to catch (code will produce downstream errors if subjects with missing sulci are included).
+Some specimens need to be excluded from the analysis for various reasons. This includes specimens with faulty segmentations (25_1month_macaque) or sulci missing from the tracing(14_20months_human). These two are most important to catch (code will produce downstream errors if subjects with missing sulci are included).
 
 If a few specimens have the potential to drastically skew results, as shown by plotOutliers and the PCA plots later on, they can also be excluded here.
 
 human Pial: '19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human'
 human White: '17_78months_human', '24_87months_human', '18_92months_human', '14_20months_human'
+macaque Pial: '25_1month_macaque', '1_12months_macaque', '4_16months_macaque'
+macaque White: '34_2weeks_macaque', '27_19months_macaque', '25_1month_macaque'
+combined pial: '14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human'
 ```{r}
-OUTLIERS = list('17_78months_human', '24_87months_human', '18_92months_human', '14_20months_human')
+OUTLIERS = list('14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
@@ -57,7 +60,11 @@ Further explanation of GPA and semi-landmarks can be found [here](https://digita
 Finally, this code chunk displays a plot meant to help identify potential outliers to be excluded. The specimen ids will be printed out in the order they appear in the plot for ease of access.
 
 ```{r, echo=FALSE}
-num = as.numeric(readline(prompt="How many landmarks are there?"))
+num = 2 * length(getSulci(surface, species)) * 100
+
+if(surface == 'pi') {
+  num = num + 300
+}
 
 resampled = resampleCurves(df, surface, species)
 data = transformToArray(resampled, num)
@@ -139,6 +146,7 @@ macaque = speciesMatrix[,,2]
 
 plot3d(macaque, col = 'black')
 points3d(human, col = 'red', add=T)
+makeGif('consensus', species, surface)
 
 r3dDefaults$windowRect = c(100, 100, 1000, 1000)
 
@@ -161,7 +169,7 @@ for(i in 1:4) {
 # ANOVA and PC correlation to centroid size
 Analysis of variance to examine the effect of centroid size, age group, and species(if a combined analysis, species is not included as a covariate otherwise) on overall shape. Centroid size was log transformed to account for the greater amount of size variation present within a species as the species get larger.
 
-Centroid size is a surrogate measure for overall siz calculated by the sum of the square of distance from the center of the specimen (centroid) to each landmark. The larger the brain, the more lateral sulci will be, and thus the distance from each landmark to the centroid increases.
+Centroid size is a surrogate measure for overall size calculated by the sum of the square of distance from the center of the specimen (centroid) to each landmark. The larger the brain, the more lateral sulci will be, and thus the distance from each landmark to the centroid increases.
 
 Correlation between principal component scores and centroid size was also examined for the first 4 principal components.
 
@@ -186,8 +194,8 @@ Allometry describes the variation in shape that occurs as size changes. Allometr
 [plotAllometry documentation](https://www.rdocumentation.org/packages/geomorph/versions/4.0.10/topics/plotAllometry)
 ```{r}
 plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(1,2)[gdf$species])
-legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
-legend('topleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+legend('topright', pch=c(1,2), legend=unique(GPA$species))
+legend('right', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 
 plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='RegScore',col=brainColors, pch=c(1,2)[gdf$species])
