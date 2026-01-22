@@ -41,8 +41,9 @@ human White: '17_78months_human', '24_87months_human', '18_92months_human', '14_
 macaque Pial: '25_1month_macaque', '1_12months_macaque', '4_16months_macaque'
 macaque White: '34_2weeks_macaque', '27_19months_macaque', '25_1month_macaque'
 combined pial: '14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human'
+combined white: '14_20months_human', '25_1month_macaque', '17_78months_human'
 ```{r}
-OUTLIERS = list('14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human')
+OUTLIERS = list('19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
@@ -76,11 +77,13 @@ plotOutliers(GPA$coords)
 ```
 
 # Resample Sulci again based on Sulcal Length
-Resampling all sulci to 100 landmarks falsely gives each sulcus equal weight in determining the consensus configuration, even though there are large differences in length between some sulci. To deal with this, the length of each sulci (in arbitrary units) was found by measuring the consensus configuration after GPA. A ratio between sulcal length and landmarks was determined so that the central sulcus of the left hemisphere would be 100 landmarks, no matter what surface (white or gray matter) or species was being investigated. The original tracing points were resampled again, to a number of landmarks that reflected their relative length, and the GPA process was repeated as above.       
+Resampling all sulci to 100 landmarks falsely gives each sulcus equal weight in determining the consensus configuration, even though there are large differences in length between some sulci. To deal with this, the length of each sulci (in arbitrary units) was found by measuring the consensus configuration after GPA. A ratio between sulcal length and landmarks was determined so that the central sulcus of the left hemisphere would be 20 landmarks, no matter what surface (white or gray matter) or species was being investigated. The original tracing points were resampled again, to a number of landmarks that reflected their relative length, and the GPA process was repeated as above.       
 ```{r, echo=FALSE}
-ref = findSulcalLengths(surface, species, GPA$consensus)
+# resample central sulci to 20 points (originally 100/20) and base everything off of that
+ref = findSulcalLengths(surface, species, GPA$consensus, ce=20)
 
 resampled = resampleCurves(df, surface, species, sulcalLengths=ref)
+
 num = sumlm(ref)
 data = transformToArray(resampled, num)
 
@@ -194,7 +197,7 @@ Allometry describes the variation in shape that occurs as size changes. Allometr
 [plotAllometry documentation](https://www.rdocumentation.org/packages/geomorph/versions/4.0.10/topics/plotAllometry)
 ```{r}
 plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(1,2)[gdf$species])
-legend('topright', pch=c(1,2), legend=unique(GPA$species))
+legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
 legend('right', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 

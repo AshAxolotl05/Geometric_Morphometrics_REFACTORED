@@ -66,7 +66,7 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
   # resample curve
   temp = data.frame(resampleCurve(temp, n=300))
   curve = cbind(temp$X1, temp$X2, temp$X3)
-
+  
   # get starting point
   start = curve[1,]
 
@@ -202,7 +202,8 @@ curveDist = function(i1, i2, referenceMatrix) {
 #' @param surface The string surface ('pi for gray matter or 'wm' for white matter) to investigate.
 #' @param species The string species ('human' 'macaque', or 'combined') to investigate.
 #' @param referenceMatrix A 2D matrix of all sulcal coordinates (x, y, z) to use as a reference.
-findSulcalLengths = function (surface, species, referenceMatrix) {
+#' @param ce The number of landmarks to use for the central sulcus
+findSulcalLengths = function (surface, species, referenceMatrix, ce=100) {
   sulci = getSulci(surface, species)
 
   #Make hasmap containing all sulci and their lengths in the consensus configuration
@@ -238,7 +239,7 @@ findSulcalLengths = function (surface, species, referenceMatrix) {
   }
 
   #translate length into number of points based on central sulcus length
-  ratio = 100 / sulcalLengths[['lh']][['ce']]
+  ratio = ce / sulcalLengths[['lh']][['ce']]
 
   # calculate number of points to resample each sulcus to
   for (hemi in keys(sulcalLengths)) {

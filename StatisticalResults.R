@@ -187,7 +187,8 @@ deviationAlongPC = function(pca, pc=1) {
   min = get('min', get(comp, pca$shapes))
   max = get('max', get(comp, pca$shapes))
 
-  plot3d(min, col='blue')
-  points3d(max, col='green', add=TRUE)
+  deformGrid3d(min, max, type='p', show=1:2, col1='blue', col2='green')
+  
+  
 
 }
