@@ -155,6 +155,60 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
   return(resampled)
 }
 
+startEndPoints = function (df, surface, species){
+  #create data frame to store points
+  points = data.frame(
+    species = character(),
+    subject = character(),
+    time = character(),
+    hemisphere = character(),
+    surface = character(),
+    sulcus = character(),
+    id = numeric(),
+    x = numeric(),
+    y = numeric(),
+    z = numeric(),
+    specimen = character()
+  )
+  
+  # select the relevant sulci and species
+  sulci = getSulci(surface, species)
+  if(species == 'combined') {
+    speciesList = list('macaque', 'human')
+  } else { speciesList = list(species)}
+  
+  #get first and last point
+  for (species in speciesList) {
+    for (subject in unique(df[df$species == species, 'subject'])) {
+      for (time in unique(df[df$species == species & df$subject == subject, 'time'])) {
+        for (hemi in list('lh', 'rh')) {
+          for (sulcus in sulci) {
+            temp = df[(df$sulcus == sulcus & df$subject == subject & df$species == species & df$hemisphere == hemi & df$time == time),
+                      c('species', 'subject', 'time', 'hemisphere', 'gm_or_wm', 'sulcus', 'index_number', 'x', 'y', 'z', 'specimen')]
+            min = temp[temp$index_number == min(temp$index_number), ]
+            max = temp[temp$index_number == max(temp$index_number), ]
+          
+            points = rbind(points, min, max)
+          }
+        }
+        
+        if (surface == 'pi') {
+          for (sulcus in list('pl', 'ol', 'fl')) {
+            temp = df[(df$sulcus == sulcus & df$subject == subject & df$species == species & df$hemisphere == 'central' & df$time == time),
+                      c('species', 'subject', 'time', 'hemisphere', 'gm_or_wm', 'sulcus', 'index_number', 'x', 'y', 'z', 'specimen')]
+            min = temp[temp$index_number == min(temp$index_number), ]
+            max = temp[temp$index_number == min(temp$index_number), ]
+            
+            points = rbind(points, min, max)
+            
+          }
+        }
+      }
+    }
+  }
+  return(points)
+}
+
 #' Excludes a given list of outliers from the analysis
 #'
 #' @param df The dataframe to exclude specimens from. This should have been read in from combined_tracings.csv or something with the same format. It must have a specimen column.
