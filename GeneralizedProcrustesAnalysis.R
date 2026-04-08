@@ -10,22 +10,34 @@ library('roxygen2')
 #' + surface(gray matter/pial as 'pi' and white matter as 'wm') combination.
 #' sulci are referred to by the same abbreviations as in the tracing spreadsheets.
 #'
-makeSulci = function() {
+makeSulci = function(oneSpec=F) {
   map = hashmap()
 
   pial = hashmap()
-  mPi = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'po', 'of', 'ip', 'di', 'cb', 'io')
-  hPi = list('ar', 'cb', 'ce', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
-  cPi = list('ce', 'la', 'st', 'po', 'of', 'ip', 'cb')
-
+  if (oneSpec){
+    hPi = list('ar', 'hr', 'if', 'it', 'pc','pt', 'sf')
+    mPi = list('arc', 'pr','lu','di', 'io')
+    cPi = list()
+  } else {
+    mPi = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'po', 'of', 'ip', 'di', 'cb', 'io')
+    hPi = list('ar', 'cb', 'ce', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
+    cPi = list('ce', 'la', 'st', 'po', 'of', 'ip', 'cb')
+  }
+  
   pial[['macaque']] = mPi
   pial[['human']] = hPi
   pial[['combined']] = cPi
 
   white = hashmap()
-  mWh = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'co', 'ci', 'po', 'of', 'ca', 'ip', 'di', 'io')
-  hWh = list('ar', 'ca', 'ce', 'ci', 'co', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
-  cWh = list('ca', 'ce', 'ci', 'co','ip', 'la', 'of', 'po', 'st')
+  if (oneSpec){
+    hWh = list('ar', 'hr', 'if', 'it', 'pc', 'pt', 'sf')
+    mWh = list('arc', 'pr','lu','di', 'io')
+    cWh = list()
+  } else {
+    mWh = list('ce', 'arc', 'pr', 'la', 'st', 'lu', 'co', 'ci', 'po', 'of', 'ca', 'ip', 'di', 'io')
+    hWh = list('ar', 'ca', 'ce', 'ci', 'co', 'hr', 'if', 'ip', 'it', 'la', 'of', 'pc', 'po', 'pt', 'sf', 'st')
+    cWh = list('ca', 'ce', 'ci', 'co','ip', 'la', 'of', 'po', 'st')
+  }
 
   white[['macaque']] = mWh
   white[['human']] = hWh
@@ -41,8 +53,13 @@ makeSulci = function() {
 #'
 #' @param surface A string representing the surface, either 'pi' for gray matter or 'wm' for white matter
 #' @param species A string representing the species, either 'macaque', 'human', or 'combined' for sulci traced in both
+#' @param oneSpec Are sulci unique to only one species being processed
 #'
-getSulci = function(surface, species) {
+getSulci = function(surface, species, oneSpec=F) {
+  if (oneSpec){
+    return(UNIQUESULCI[[surface]][[species]])
+  }
+  
   return(SULCI[[surface]][[species]])
 }
 
@@ -90,7 +107,8 @@ resample = function(sulcus, subject, species, hemi, time, df, numpts) {
 #' @param species The species (human, macaque, or combined) to reference.
 #' @param sulcalLengths A hashmap or hasmaps formatted so that the first set of keys correspond to surface and the second set of keys correspond to sulcus
 #' that stores the number of points to resample each sulcus to. Null by default, in which case every sulcus will be resampled to 100 points.
-resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
+#' @param oneSpec Are sulci unique to only one species being processed
+resampleCurves = function(df, surface, species, sulcalLengths=NULL, oneSpec=FALSE) {
   #create data frame to store resampled points
   resampled = data.frame(
   x = numeric(),
@@ -105,10 +123,10 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
 )
 
   # select the relevant sulci and species
-  sulci = getSulci(surface, species)
+  sulci = getSulci(surface, species, oneSpec)
   if(species == 'combined') {
     speciesList = list('macaque', 'human')
-  } else { speciesList = list(species)}
+  } else {speciesList = list(species)}
 
   # if a reference hashmap was provided, take note. Otherwise all sulci are resampled to 100 points
   REFERENCE = !is.null(sulcalLengths)
@@ -130,7 +148,7 @@ resampleCurves = function(df, surface, species, sulcalLengths=NULL) {
           }
         }
 
-        if (surface == 'pi') {
+        if (surface == 'pi' & oneSpec == F) {
           for (sulcus in list('pl', 'ol', 'fl')) {
 
             #handle intitial vs second resampling
@@ -257,14 +275,16 @@ curveDist = function(i1, i2, referenceMatrix) {
 #' @param species The string species ('human' 'macaque', or 'combined') to investigate.
 #' @param referenceMatrix A 2D matrix of all sulcal coordinates (x, y, z) to use as a reference.
 #' @param ce The number of landmarks to use for the central sulcus
-findSulcalLengths = function (surface, species, referenceMatrix, ce=100) {
-  sulci = getSulci(surface, species)
+#' @param rat factor to multiply each sulcus length by to get number of points
+#' @param oneSpec Are sulci unique to only one species being processed
+findSulcalLengths = function (surface, species, referenceMatrix, ce=100, oneSpec=F, rat=-1) {
+  sulci = getSulci(surface, species, oneSpec)
 
   #Make hasmap containing all sulci and their lengths in the consensus configuration
   sulcalLengths = hashmap()
 
   # Handle pial vs white matter
-  if (surface == 'pi') {
+  if (surface == 'pi'& oneSpec == F) {
     i = 1
 
     #handle median longitudinal sulcus
@@ -293,7 +313,11 @@ findSulcalLengths = function (surface, species, referenceMatrix, ce=100) {
   }
 
   #translate length into number of points based on central sulcus length
-  ratio = ce / sulcalLengths[['lh']][['ce']]
+  if(rat == -1){
+    ratio = ce / sulcalLengths[['lh']][['ce']]
+    cat('ratio was', ratio, sep=' ')
+  } else {ratio = rat}
+  
 
   # calculate number of points to resample each sulcus to
   for (hemi in keys(sulcalLengths)) {
@@ -345,6 +369,10 @@ transformToArray = function(df, num) {
     species = c(species, df[i, 'species'])
     subject = c(subject, paste(df[i, 'subject'], df[i, 'species'], sep='_'))
   }
+  
+  print(dim(data))
+  print(length(ids))
+  print(num)
 
   dimnames(data) = list(
     Landmark = 1:num ,  # names for landmarks
@@ -407,3 +435,4 @@ procrustes = function(num, data, sulcalLengths=NULL) {
 }
 
 SULCI = makeSulci()
+UNIQUESULCI = makeSulci(T)

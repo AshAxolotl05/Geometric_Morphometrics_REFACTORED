@@ -40,10 +40,10 @@ human Pial: "14_20months_human", '25_89months_human', '24_87months_human', '17_7
 human White: '14_20months_human', '17_78months_human', '18_92months_human', '24_87months_human'
 macaque Pial: '25_1month_macaque', '1_12months_macaque', '4_16months_macaque', '2_28months_macaque'
 macaque White: '25_1month_macaque', '34_2weeks_macaque','19_20months_macaque','10_22months_macaque'
-combined pial: 
+combined pial: '25_1month_macaque', '14_20months_human', '17_78months_human', '25_89months_human', '18_92months_human', '24_87months_human'
 combined white: 
 ```{r}
-OUTLIERS = list('25_1month_macaque', '14_20months_human', '17_78months_human', '25_89months_human', '18_92months_human', '24_87months_human')
+OUTLIERS = list('25_1month_macaque', '14_20months_human', '17_78months_human', '18_92months_human', '19_20months_macaque', '24_87months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
@@ -190,5 +190,5 @@ legend('right', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='RegScore',col=brainColors, pch=c(1,2)[gdf$species])
 legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
-legend('right', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
+legend('topleft', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 ```

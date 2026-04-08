@@ -43,7 +43,7 @@ macaque White: '34_2weeks_macaque', '27_19months_macaque', '25_1month_macaque'
 combined pial: '14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human'
 combined white: '14_20months_human', '25_1month_macaque', '17_78months_human'
 ```{r}
-OUTLIERS = list('19_9months_human', '25_89months_human', '17_78months_human', '24_87months_human',  '18_92months_human','14_20months_human')
+OUTLIERS = list('14_20months_human', '25_1month_macaque', '19_9months_human', '17_78months_human', '24_87months_human', '25_89months_human', '18_92months_human')
 df = excludeOutliers(df, OUTLIERS)
 ```
 
@@ -159,6 +159,173 @@ makeGif('deform3D', species, surface)
 transformConfigurations(macaque, human)
 
 ```
+# Project Macaue and Human Sulci onto Combined: Macaque and Human config With Same # of landmarks
+```{r}
+df = read.csv("combined_tracings.csv")
+df = excludeOutliers(df, OUTLIERS)
+
+# macaque  sulci
+mSulc = df[df$species=='macaque' & df$gm_or_wm==surface & df$present_in=='both',]
+
+# first GPA
+num.m = 2 * length(getSulci(surface, 'combined')) * 100
+
+if(surface == 'pi') {
+  num.m = num.m + 300
+}
+
+resampled.m = resampleCurves(mSulc, surface, 'combined')
+data.m = transformToArray(resampled.m, num.m)
+GPA.m = procrustes(num.m, data.m)
+
+# human only sulci
+hSulc = df[df$species=='human' & df$gm_or_wm==surface & df$present_in=='both',]
+
+num.h = 2 * length(getSulci(surface, 'combined')) * 100
+
+if(surface == 'pi') {
+  num.h = num.h + 300
+}
+
+resampled.h = resampleCurves(hSulc, surface, 'combined')
+data.h = transformToArray(resampled.h, num.h)
+GPA.h = procrustes(num.h, data.h)
+
+# get stats for second GPA
+
+ref.m = findSulcalLengths(surface, 'combined', GPA.m$consensus, ce=20)
+resampled.m = resampleCurves(mSulc, surface, 'combined', sulcalLengths=ref.m)
+num.m = sumlm(ref.m)
+
+ref.h = findSulcalLengths(surface, 'combined', GPA.h$consensus, ce=20)
+resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
+num.h = sumlm(ref.h)
+
+print(num.m)
+print(num.h)
+```
+
+
+# Redo Human Resampling with new ratios and make edits to clear up errors. Goal is to have = number of landmarks, so add to longest sulcus in smaller to minimize effect
+```{r}
+human.rat=562.5522
+macaque.rat=689.0683
+
+human.rat= num.m/(num.h/human.rat)
+
+ref.h = findSulcalLengths(surface, 'combined', GPA.h$consensus, rat=human.rat)
+
+resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
+
+num.h = sumlm(ref.h)
+
+diff = abs(num.m-num.h)
+if (num.m < num.h){
+  smaller = list(ref.m, 'm')
+  
+} else {smaller = list(ref.h, 'h')}
+
+# find diff # of longest sulci
+max = data.frame(points = c(), hemi = c(), sulcus = c())
+  
+  for(hemi in c('lh', 'rh')) {
+    for(sulcus in unlist(keys(smaller[[1]][[hemi]]))){
+      points = smaller[[1]][[hemi]][[sulcus]]
+      max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
+    }
+  }
+
+max = max[order(-max$points),]
+
+#increment them
+if(smaller[[2]]=='m') {
+  for(i in seq(1, diff)){
+    val = max[i,]
+    ref.m[[val[[2]]]][[val[[3]]]] = ref.m[[val[[2]]]][[val[[3]]]] + 1
+    } 
+  } else {
+    for(i in seq(1, diff)){
+      val = max[i,]
+      ref.h[[val[[2]]]][[val[[3]]]] = ref.h[[val[[2]]]][[val[[3]]]] + 1
+    }
+  }
+  
+# check landmarks
+  num.m = sumlm(ref.m)
+  num.h = sumlm(ref.h)
+  print(num.m - num.h) #should be 0
+
+```
+#Run GPA and Project Both Onto Eachother
+```{r}
+# update resampling
+resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
+resampled.m = resampleCurves(mSulc, surface, 'combined', sulcalLengths=ref.m)
+
+data.h = transformToArray(resampled.h, num.h)
+data.m = transformToArray(resampled.m, num.m)
+
+# GPA
+GPA.m = procrustes(num.m, data.m, ref.m)
+GPA.h = procrustes(num.h, data.h, ref.h)
+
+# Rotate Onto Eachother
+
+GPA.c = rotonto(GPA.m$consensus, GPA.h$consensus)
+
+
+# Project Macaque and Human onto Consensus to get transformation matrices
+transform.m = computeTransform(GPA.c$yrot, GPA.m$consensus)
+transform.h = computeTransform(GPA.c$yrot, GPA.h$consensus)
+```
+
+#Get Unique Macaque and Human Sulci; Apply Transformation Matrices to Each
+```{r}
+mSulc.u = df[df$species=='macaque' & df$gm_or_wm==surface & df$present_in=='macaque',]
+hSulc.u = df[df$species=='human' & df$gm_or_wm==surface & df$present_in=='human',]
+
+# first GPA
+resampled.m.u = resampleCurves(mSulc.u, surface, 'macaque', oneSpec = T)
+num.m.u = 2 * length(unique(mSulc.u$sulcus)) * 100
+
+data.m.u = transformToArray(resampled.m.u,num.m.u)
+GPA.m.u = procrustes(num.m.u, data.m.u)
+
+resampled.h.u = resampleCurves(hSulc.u, surface, 'human', oneSpec = T)
+num.h.u = 2 * length(unique(hSulc.u$sulcus)) * 100
+
+
+data.h.u = transformToArray(resampled.h.u, num.h.u)
+GPA.h.u = procrustes(num.h.u, data.h.u)
+
+#Second GPA
+ref.m.u = findSulcalLengths(surface, 'macaque', GPA.m.u$consensus, rat = macaque.rat, oneSpec = T)
+resampled.m.u = resampleCurves(mSulc.u, surface, 'macaque', sulcalLengths=ref.m.u, oneSpec = T)
+num.m.u = sumlm(ref.m.u)
+data.m.u = transformToArray(resampled.m.u,num.m.u)
+
+GPA.m.u = procrustes(num.m.u, data.m.u, sulcalLengths=ref.m.u)
+
+ref.h.u = findSulcalLengths(surface, 'human', GPA.h.u$consensus, rat = human.rat, oneSpec = T)
+resampled.h.u = resampleCurves(hSulc.u, surface, 'human', sulcalLengths=ref.h.u, oneSpec = T)
+num.h.u = sumlm(ref.h.u)
+data.h.u = transformToArray(resampled.h.u,num.h.u)
+
+GPA.h.u = procrustes(num.h.u, data.h.u, sulcalLengths=ref.h.u)
+```
+
+#Apply Transformation Matrix
+```{r}
+coords.m = applyTransform(GPA.m.u$consensus, transform.m)
+coords.h = applyTransform(GPA.h.u$consensus, transform.h)
+
+#Plots
+plot3d(GPA.c$yrot)
+points3d(coords.m, col='blue', add=T)
+points3d(coords.h, col = 'orange', add=T)
+```
+
+
 
 # Deviation along Principal Components
 The extreme ends of shape variation explained by a single principal component were plotted in blue (minimum) and green (maximum) for the first four principal components. The GIFs will save to the current directory.
@@ -189,6 +356,13 @@ if(species == 'combined') {
 # PC correlation to centroid size
 pcToSize(PCA, GPA)
 
+#single ANOVA for age, centroid size, and species (if combined)
+if(species == 'combined'){
+  print(summary(procD.lm(gdf$coords~gdf$species, data=gdf)))
+}
+
+summary(procD.lm(gdf$coords~log(gdf$Csize), data=gdf))
+summary(procD.lm(gdf$coords~gdf$age, data=gdf))
 ```
 
 # Allometry
@@ -197,7 +371,7 @@ Allometry describes the variation in shape that occurs as size changes. Allometr
 [plotAllometry documentation](https://www.rdocumentation.org/packages/geomorph/versions/4.0.10/topics/plotAllometry)
 ```{r}
 plotAllometry(fit, size=gdf$Csize, logsz=TRUE, method='PredLine', col=brainColors, pch=c(1,2)[gdf$species])
-legend('bottomright', pch=c(1,2), legend=unique(GPA$species))
+legend('topright', pch=c(1,2), legend=unique(GPA$species))
 legend('right', fill=colorcor$colors, cex=0.6, legend=colorcor$age)
 
 
