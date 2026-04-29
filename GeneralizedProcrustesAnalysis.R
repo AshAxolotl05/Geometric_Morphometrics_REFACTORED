@@ -337,9 +337,9 @@ sumlm = function(lengths) {
   sum = 0
 
   #iterate over map
-  for(key in keys(lengths)) {
-    for (length in keys(lengths[[key]])) {
-      sum = sum + lengths[[key]][[length]]
+  for(hemi in keys(lengths)) {
+    for (sulcus in keys(lengths[[hemi]])) {
+      sum = sum + lengths[[hemi]][[sulcus]]
     }
   }
 

@@ -10,7 +10,7 @@ source('GeneralizedProcrustesAnalysis.R')
 source("StatisticalResults.R")
 library('geomorph')
 library('ggplot2')
-
+library('r2r')
 ```
 
 # Read CSV and Configure Analysis
@@ -167,70 +167,180 @@ df = excludeOutliers(df, OUTLIERS)
 # macaque  sulci
 mSulc = df[df$species=='macaque' & df$gm_or_wm==surface & df$present_in=='both',]
 
-# first GPA
-num.m = 2 * length(getSulci(surface, 'combined')) * 100
+# GPA using combined reference landmarks
 
-if(surface == 'pi') {
-  num.m = num.m + 300
-}
+resampled.m = resampleCurves(mSulc, surface, 'combined', sulcalLengths=ref)
+num.m = sumlm(ref)
 
-resampled.m = resampleCurves(mSulc, surface, 'combined')
-data.m = transformToArray(resampled.m, num.m)
-GPA.m = procrustes(num.m, data.m)
+resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref)
+num.h = sumlm(ref)
 
-# human only sulci
-hSulc = df[df$species=='human' & df$gm_or_wm==surface & df$present_in=='both',]
-
-num.h = 2 * length(getSulci(surface, 'combined')) * 100
-
-if(surface == 'pi') {
-  num.h = num.h + 300
-}
-
-resampled.h = resampleCurves(hSulc, surface, 'combined')
 data.h = transformToArray(resampled.h, num.h)
-GPA.h = procrustes(num.h, data.h)
+data.m = transformToArray(resampled.m, num.m)
 
-# get stats for second GPA
+# GPA
+GPA.m = procrustes(num.m, data.m, ref)
+GPA.h = procrustes(num.h, data.h, ref)
 
-ref.m = findSulcalLengths(surface, 'combined', GPA.m$consensus, ce=20)
-resampled.m = resampleCurves(mSulc, surface, 'combined', sulcalLengths=ref.m)
-num.m = sumlm(ref.m)
-
-ref.h = findSulcalLengths(surface, 'combined', GPA.h$consensus, ce=20)
-resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
-num.h = sumlm(ref.h)
-
-print(num.m)
-print(num.h)
 ```
 
-
-# Redo Human Resampling with new ratios and make edits to clear up errors. Goal is to have = number of landmarks, so add to longest sulcus in smaller to minimize effect
 ```{r}
-human.rat=562.5522
-macaque.rat=689.0683
+# Rotate Onto Eachother So they face same way
+GPA.c = rotonto(GPA.m$consensus, GPA.h$consensus) 
 
-human.rat= num.m/(num.h/human.rat)
+# Combine Landmarks
+landmarks = abind(GPA.c$X, GPA.c$Y, along = 3)
 
-ref.h = findSulcalLengths(surface, 'combined', GPA.h$consensus, rat=human.rat)
+GPA.c2 = gpagen(landmarks)
 
-resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
+#Verify everything looks right 
+plot3d(GPA.c2$consensus)
+points3d(GPA.c$X, col = 'blue') #Macaque
+points3d(GPA.c$Y, col = 'orange') #Human
 
-num.h = sumlm(ref.h)
+```
 
-diff = abs(num.m-num.h)
-if (num.m < num.h){
-  smaller = list(ref.m, 'm')
-  
-} else {smaller = list(ref.h, 'h')}
+#Get All Macaque and Human Sulci
+```{r}
+mSulc.a = df[df$species=='macaque' & df$gm_or_wm==surface,]
+hSulc.a = df[df$species=='human' & df$gm_or_wm==surface,]
+
+# first GPA
+resampled.m.a = resampleCurves(mSulc.a, surface, 'macaque')
+num.m.a = 2 * length(getSulci(surface, 'macaque')) * 100
+
+if(surface == 'pi') {
+  num.m.a = num.m.a + 300
+}
+
+data.m.a = transformToArray(resampled.m.a,num.m.a)
+GPA.m.a = procrustes(num.m.a, data.m.a)
+
+resampled.h.a = resampleCurves(hSulc.a, surface, 'human')
+num.h.a = 2 * length(getSulci(surface, 'human')) * 100
+
+if(surface == 'pi') {
+  num.h.a = num.h.a + 300
+}
+
+data.h.a = transformToArray(resampled.h.a, num.h.a)
+GPA.h.a = procrustes(num.h.a, data.h.a)
+
+#Second GPA
+ref.m.a = findSulcalLengths(surface, 'macaque', GPA.m.a$consensus, ce=20)
+resampled.m.a = resampleCurves(mSulc.a, surface, 'macaque', sulcalLengths=ref.m.a)
+num.m.a = sumlm(ref.m.a)
+data.m.a = transformToArray(resampled.m.a,num.m.a)
+
+ref.h.a = findSulcalLengths(surface, 'human', GPA.h.a$consensus, ce=20)
+resampled.h.a = resampleCurves(hSulc.a, surface, 'human', sulcalLengths=ref.h.a)
+num.h.a = sumlm(ref.h.a)
+data.h.a = transformToArray(resampled.h.a, num.h.a)
+```
+```{r}
+#get only combined lm
+unique = getSulci(surface, 'macaque', oneSpec=T)
+num.m.c = num.m.a
+for(hemi in c('lh', 'rh')){
+  for(sulcus in unique){
+    num.m.c = num.m.c - ref.m.a[[hemi]][[sulcus]]
+  }
+}
+
+num.h.c = num.h.a
+unique = getSulci(surface, 'human', oneSpec=T)
+for(hemi in c('lh', 'rh')){
+  for(sulcus in unique){
+    num.h.c = num.h.c - ref.h.a[[hemi]][[sulcus]]
+  }
+}
+
+# check against combined
+print(num.h.c - nrow(GPA.c2$consensus))
+print(num.m.c - nrow(GPA.c2$consensus))
+
+```
+
+# Fix Human Ratio (Only if diff is non zero)
+```{r}
+new.h.rat = 781.2492
+new.h.rat = (new.h.rat * nrow(GPA.c2$consensus))/num.h.c
+
+ref.h.a2 = findSulcalLengths(surface, 'human', GPA.h.a$consensus, rat = new.h.rat)
+resampled.h.a2 = resampleCurves(hSulc.a, surface, 'human', sulcalLengths=ref.h.a2)
+num.h.a2 = sumlm(ref.h.a2)
+
+# get combined reference matrix
+ref.h.c = hashmap()
+unique = getSulci(surface, 'human', oneSpec = T)
+#handle left and right hemispheres
+  for (hemi in keys(ref.h.a2)) {
+    sulcMap = hashmap()
+    for (sulcus in keys(ref.h.a2[[hemi]])) {
+      if (!sulcus %in% unique) {
+        sulcMap[[sulcus]] = ref.h.a2[[hemi]][[sulcus]]
+      }
+    }
+    ref.h.c[[hemi]] = sulcMap
+  }
+
+num.h.c = sumlm(ref.h.c)
+
+# check against combined again
+print((num.h.c - nrow(GPA.c2$consensus)))
+
+```
+
+#Fix Macaque Ratio (Only if Diff is non zero)
+
+```{r}
+new.m.rat = 890.3887
+new.m.rat = (new.m.rat * nrow(GPA.c2$consensus))/num.m.c
+
+ref.m.a2 = findSulcalLengths(surface, 'macaque', GPA.m.a$consensus, rat = new.m.rat)
+
+for(hemi in c('lh', 'rh')){
+  for(key in keys(ref.m.a2[[hemi]])){
+    if(ref.m.a2[[hemi]][[key]] == 2) {
+      ref.m.a2[[hemi]][[key]] = ref.m.a2[[hemi]][[key]] + 1
+    }
+  }
+}
+resampled.m.a2 = resampleCurves(mSulc.a, surface, 'macaque', sulcalLengths=ref.m.a2)
+num.m.a2 = sumlm(ref.m.a2)
+
+# get combined reference matrix
+ref.m.c = hashmap()
+unique = getSulci(surface, 'macaque', oneSpec = T)
+#handle left and right hemispheres
+  for (hemi in keys(ref.m.a2)) {
+    sulcMap = hashmap()
+    for (sulcus in keys(ref.m.a2[[hemi]])) {
+      if (!sulcus %in% unique) {
+        sulcMap[[sulcus]] = ref.m.a2[[hemi]][[sulcus]]
+      }
+    }
+    ref.m.c[[hemi]] = sulcMap
+  }
+
+num.m.c = sumlm(ref.m.c)
+
+# check against combined again
+print((num.m.c - nrow(GPA.c2$consensus)))
+
+```
+
+#Algorithmic changes to human landmarks (Only if diff is still non zero after ratio correction ) HUMAN
+```{r}
+#make any changes to ref.h.a
+diff = abs(nrow(GPA.c2$consensus) - num.h.c) # human should be smaller
 
 # find diff # of longest sulci
 max = data.frame(points = c(), hemi = c(), sulcus = c())
   
   for(hemi in c('lh', 'rh')) {
-    for(sulcus in unlist(keys(smaller[[1]][[hemi]]))){
-      points = smaller[[1]][[hemi]][[sulcus]]
+    for(sulcus in r2r::keys(ref.h.c[[hemi]])){
+      points = ref.h.c[[hemi]][[sulcus]]
       max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
     }
   }
@@ -238,94 +348,133 @@ max = data.frame(points = c(), hemi = c(), sulcus = c())
 max = max[order(-max$points),]
 
 #increment them
-if(smaller[[2]]=='m') {
-  for(i in seq(1, diff)){
+  for(i in seq(1, abs(diff))) {
     val = max[i,]
-    ref.m[[val[[2]]]][[val[[3]]]] = ref.m[[val[[2]]]][[val[[3]]]] + 1
-    } 
-  } else {
-    for(i in seq(1, diff)){
-      val = max[i,]
-      ref.h[[val[[2]]]][[val[[3]]]] = ref.h[[val[[2]]]][[val[[3]]]] + 1
+    ref.h.a2[[val[[2]]]][[val[[3]]]] = ref.h.a2[[val[[2]]]][[val[[3]]]] + 1
+    ref.h.c[[val[[2]]]][[val[[3]]]] = ref.h.c[[val[[2]]]][[val[[3]]]] + 1
     }
-  }
   
 # check landmarks
-  num.m = sumlm(ref.m)
-  num.h = sumlm(ref.h)
-  print(num.m - num.h) #should be 0
+  num.h.c = sumlm(ref.h.c)
+  print(num.h.c - nrow(GPA.c2$consensus)) #should be 0
 
 ```
-#Run GPA and Project Both Onto Eachother
+
+#Algorithmic changes to macaque landmarks (Only if diff is still non zero after ratio correction ) MACAQUE
 ```{r}
-# update resampling
-resampled.h = resampleCurves(hSulc, surface, 'combined', sulcalLengths=ref.h)
-resampled.m = resampleCurves(mSulc, surface, 'combined', sulcalLengths=ref.m)
+#make any changes to ref.m.a
+diff = abs(nrow(GPA.c2$consensus) - num.m.c) # human should be smaller
 
-data.h = transformToArray(resampled.h, num.h)
-data.m = transformToArray(resampled.m, num.m)
+# find diff # of longest sulci
+max = data.frame(points = c(), hemi = c(), sulcus = c())
+  
+  for(hemi in c('lh', 'rh')) {
+    for(sulcus in r2r::keys(ref.m.c[[hemi]])){
+      points = ref.m.c[[hemi]][[sulcus]]
+      max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
+    }
+  }
 
-# GPA
-GPA.m = procrustes(num.m, data.m, ref.m)
-GPA.h = procrustes(num.h, data.h, ref.h)
+max = max[order(-max$points),]
 
-# Rotate Onto Eachother
+#increment them
+  for(i in seq(1, abs(diff))) {
+    val = max[i,]
+    ref.m.a2[[val[[2]]]][[val[[3]]]] = ref.m.a2[[val[[2]]]][[val[[3]]]] - 1
+    ref.m.c[[val[[2]]]][[val[[3]]]] = ref.m.c[[val[[2]]]][[val[[3]]]] - 1
+    }
+  
+# check landmarks
+  num.m.c = sumlm(ref.m.c)
+  print(num.m.c - nrow(GPA.c2$consensus)) #should be 0
 
-GPA.c = rotonto(GPA.m$consensus, GPA.h$consensus)
-
-
-# Project Macaque and Human onto Consensus to get transformation matrices
-transform.m = computeTransform(GPA.c$yrot, GPA.m$consensus)
-transform.h = computeTransform(GPA.c$yrot, GPA.h$consensus)
 ```
 
-#Get Unique Macaque and Human Sulci; Apply Transformation Matrices to Each
+# Second GPA
 ```{r}
-mSulc.u = df[df$species=='macaque' & df$gm_or_wm==surface & df$present_in=='macaque',]
-hSulc.u = df[df$species=='human' & df$gm_or_wm==surface & df$present_in=='human',]
+resampled.m.a = resampleCurves(mSulc.a, surface, 'macaque', sulcalLengths=ref.m.a2)
+num.m.a = sumlm(ref.m.a2)
+data.m.a = transformToArray(resampled.m.a,num.m.a)
 
-# first GPA
-resampled.m.u = resampleCurves(mSulc.u, surface, 'macaque', oneSpec = T)
-num.m.u = 2 * length(unique(mSulc.u$sulcus)) * 100
+resampled.h.a = resampleCurves(hSulc.a, surface, 'human', sulcalLengths=ref.h.a2)
+num.h.a = sumlm(ref.h.a2)
+data.h.a = transformToArray(resampled.h.a, num.h.a)
 
-data.m.u = transformToArray(resampled.m.u,num.m.u)
-GPA.m.u = procrustes(num.m.u, data.m.u)
+GPA.h.a = procrustes(num.h.a, data.h.a, sulcalLengths=ref.h.a2)
+GPA.m.a = procrustes(num.m.a, data.m.a, sulcalLengths=ref.m.a2)
 
-resampled.h.u = resampleCurves(hSulc.u, surface, 'human', oneSpec = T)
-num.h.u = 2 * length(unique(hSulc.u$sulcus)) * 100
+```
 
 
-data.h.u = transformToArray(resampled.h.u, num.h.u)
-GPA.h.u = procrustes(num.h.u, data.h.u)
+#Separate Unique and Combined Sulci
+```{r}
+#Get list of Unique lm numbers MACAQUE
+m.ss = c()
+m.c = c()
+unique = getSulci(surface, 'macaque', oneSpec=T)
+i = 1
 
-#Second GPA
-ref.m.u = findSulcalLengths(surface, 'macaque', GPA.m.u$consensus, rat = macaque.rat, oneSpec = T)
-resampled.m.u = resampleCurves(mSulc.u, surface, 'macaque', sulcalLengths=ref.m.u, oneSpec = T)
-num.m.u = sumlm(ref.m.u)
-data.m.u = transformToArray(resampled.m.u,num.m.u)
+#find indices
+for (hemi in sort(unlist(keys(ref.m.a2)))) {
+      for (sulcus in sort(unlist(keys(ref.m.a2[[hemi]])))) {
+        if (sulcus %in% unique){
+          m.ss = c(m.ss, seq(i, i + ref.m.a2[[hemi]][[sulcus]] - 1)) #add rows to unique
+        } else {
+          m.c = c(m.c, seq(i, i + ref.m.a2[[hemi]][[sulcus]] -1 )) #add rows to combined
+        }
+        
+        i = i + ref.m.a2[[hemi]][[sulcus]]
+      }
+    }
 
-GPA.m.u = procrustes(num.m.u, data.m.u, sulcalLengths=ref.m.u)
+# cut to unique df
+GPA.m.u = GPA.m.a$consensus[m.ss,]
+GPA.m.c = GPA.m.a$consensus[m.c,]
 
-ref.h.u = findSulcalLengths(surface, 'human', GPA.h.u$consensus, rat = human.rat, oneSpec = T)
-resampled.h.u = resampleCurves(hSulc.u, surface, 'human', sulcalLengths=ref.h.u, oneSpec = T)
-num.h.u = sumlm(ref.h.u)
-data.h.u = transformToArray(resampled.h.u,num.h.u)
+#Get list of Unique lm numbers HUMAN
+h.ss = c()
+h.c = c()
+unique = getSulci(surface, 'human', oneSpec=T)
+i = 1
 
-GPA.h.u = procrustes(num.h.u, data.h.u, sulcalLengths=ref.h.u)
+#find indices
+for (hemi in sort(unlist(keys(ref.h.a2)))) {
+      for (sulcus in sort(unlist(keys(ref.h.a2[[hemi]])))) {
+        if (sulcus %in% unique){
+          h.ss = c(h.ss, seq(i, i + ref.h.a2[[hemi]][[sulcus]] - 1)) #add rows to unique
+        } else {
+          h.c = c(h.c, seq(i, i + ref.h.a2[[hemi]][[sulcus]] - 1)) #add rows to combined
+        }
+        
+        i = i + ref.h.a2[[hemi]][[sulcus]]
+      }
+    }
+
+# cut to unique df
+GPA.h.u = GPA.h.a$consensus[h.ss,]
+GPA.h.c = GPA.h.a$consensus[h.c,]
+
+#check
+plot3d(GPA.h.u)
+plot3d(GPA.m.u)
+
 ```
 
 #Apply Transformation Matrix
 ```{r}
-coords.m = applyTransform(GPA.m.u$consensus, transform.m)
-coords.h = applyTransform(GPA.h.u$consensus, transform.h)
+# Project Macaque and Human onto Consensus to get transformation matrices
+transform.m = computeTransform(GPA.c2$consensus, GPA.m.c, type = "affine")
+transform.h = computeTransform(GPA.c2$consensus, GPA.h.c, type = "affine")
+
+
+coords.m = applyTransform(GPA.m.u, transform.m)
+coords.h = applyTransform(GPA.h.u, transform.h) 
 
 #Plots
-plot3d(GPA.c$yrot)
+plot3d(GPA.c2$consensus)
 points3d(coords.m, col='blue', add=T)
 points3d(coords.h, col = 'orange', add=T)
 ```
-
-
 
 # Deviation along Principal Components
 The extreme ends of shape variation explained by a single principal component were plotted in blue (minimum) and green (maximum) for the first four principal components. The GIFs will save to the current directory.
