@@ -434,5 +434,48 @@ procrustes = function(num, data, sulcalLengths=NULL) {
   return(gpa)
 }
 
+#'Algorithmicly modifies the number of landmarks by adding or subtracting one landmark from the n longest sulci, where n is
+#' difference in number of landmarks between ref1 and the target, in order to minimize the overall effect.
+#' 
+#' @param ref1 hashmap of hashmaps sulcal lengths containing only combined sulci
+#' @param ref2 hashmap of hashmaps sulcal lengths containing all sulci present in a species
+#' @param num ref1 current number of landmarks
+#' @param target desired number of landmarks for ref1
+#'
+modifylm = function(ref1, ref2, num, target) {
+  
+  diff = target - num # find difference
+  
+  # find diff # of longest sulci
+  max = data.frame(points = c(), hemi = c(), sulcus = c())
+  
+  for(hemi in c('lh', 'rh')) {
+    for(sulcus in r2r::keys(ref1[[hemi]])){
+      points = ref1[[hemi]][[sulcus]]
+      max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
+    }
+  }
+  
+  max = max[order(-max$points),]
+  
+  #increment them
+  for(i in seq(1, abs(diff))) {
+    val = max[i,]
+    if (diff < 0) {
+      ref1[[val[[2]]]][[val[[3]]]] = ref1[[val[[2]]]][[val[[3]]]] + 1
+      ref2[[val[[2]]]][[val[[3]]]] = ref2[[val[[2]]]][[val[[3]]]] + 1
+    } else if (diff > 0) {
+      ref1[[val[[2]]]][[val[[3]]]] = ref1[[val[[2]]]][[val[[3]]]] - 1
+      ref2[[val[[2]]]][[val[[3]]]] = ref2[[val[[2]]]][[val[[3]]]] - 1
+    }
+  }
+  
+  # check landmarks
+  num = sumlm(ref1)
+  print(num - target) #should be 0
+  
+  return(list(ref1, ref2))
+}
+
 SULCI = makeSulci()
 UNIQUESULCI = makeSulci(T)

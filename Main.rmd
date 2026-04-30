@@ -237,6 +237,9 @@ resampled.h.a = resampleCurves(hSulc.a, surface, 'human', sulcalLengths=ref.h.a)
 num.h.a = sumlm(ref.h.a)
 data.h.a = transformToArray(resampled.h.a, num.h.a)
 ```
+
+
+# Show combined Landmarks to Determine Which Code Chunks to Run
 ```{r}
 #get only combined lm
 unique = getSulci(surface, 'macaque', oneSpec=T)
@@ -330,63 +333,25 @@ print((num.m.c - nrow(GPA.c2$consensus)))
 
 ```
 
-#Algorithmic changes to human landmarks (Only if diff is still non zero after ratio correction ) HUMAN
+#Algorithmic changes to human landmarks (Only if diff is still non zero after ratio correction ) 
 ```{r}
-#make any changes to ref.h.a
-diff = abs(nrow(GPA.c2$consensus) - num.h.c) # human should be smaller
+# make changes
+temp = modifylm(ref.h.c, ref.h.a2, num.h.c, nrow(GPA.c2$consensus))
 
-# find diff # of longest sulci
-max = data.frame(points = c(), hemi = c(), sulcus = c())
-  
-  for(hemi in c('lh', 'rh')) {
-    for(sulcus in r2r::keys(ref.h.c[[hemi]])){
-      points = ref.h.c[[hemi]][[sulcus]]
-      max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
-    }
-  }
-
-max = max[order(-max$points),]
-
-#increment them
-  for(i in seq(1, abs(diff))) {
-    val = max[i,]
-    ref.h.a2[[val[[2]]]][[val[[3]]]] = ref.h.a2[[val[[2]]]][[val[[3]]]] + 1
-    ref.h.c[[val[[2]]]][[val[[3]]]] = ref.h.c[[val[[2]]]][[val[[3]]]] + 1
-    }
-  
-# check landmarks
-  num.h.c = sumlm(ref.h.c)
-  print(num.h.c - nrow(GPA.c2$consensus)) #should be 0
+#reassign
+ref.h.c = temp[1]
+ref.h.a2 = temp[2]
 
 ```
 
-#Algorithmic changes to macaque landmarks (Only if diff is still non zero after ratio correction ) MACAQUE
+#Algorithmic changes to macaque landmarks (Only if diff is still non zero after ratio correction ) 
 ```{r}
-#make any changes to ref.m.a
-diff = abs(nrow(GPA.c2$consensus) - num.m.c) # human should be smaller
+#make changes
+temp = modifylm(ref.m.c, ref.m.a2, num.m.c, nrow(GPA.c2$consensus))
 
-# find diff # of longest sulci
-max = data.frame(points = c(), hemi = c(), sulcus = c())
-  
-  for(hemi in c('lh', 'rh')) {
-    for(sulcus in r2r::keys(ref.m.c[[hemi]])){
-      points = ref.m.c[[hemi]][[sulcus]]
-      max = rbind(max, data.frame(points=points, hemi=hemi, sulcus=sulcus))
-    }
-  }
-
-max = max[order(-max$points),]
-
-#increment them
-  for(i in seq(1, abs(diff))) {
-    val = max[i,]
-    ref.m.a2[[val[[2]]]][[val[[3]]]] = ref.m.a2[[val[[2]]]][[val[[3]]]] - 1
-    ref.m.c[[val[[2]]]][[val[[3]]]] = ref.m.c[[val[[2]]]][[val[[3]]]] - 1
-    }
-  
-# check landmarks
-  num.m.c = sumlm(ref.m.c)
-  print(num.m.c - nrow(GPA.c2$consensus)) #should be 0
+#reassign
+ref.m.c = temp[1]
+ref.m.a2 = temp[2]
 
 ```
 
