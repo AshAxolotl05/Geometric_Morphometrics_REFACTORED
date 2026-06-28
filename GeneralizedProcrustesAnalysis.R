@@ -444,7 +444,7 @@ procrustes = function(num, data, sulcalLengths=NULL) {
 #'
 modifylm = function(ref1, ref2, num, target) {
   
-  diff = target - num # find difference
+  diff = num - target # find difference
   
   # find diff # of longest sulci
   max = data.frame(points = c(), hemi = c(), sulcus = c())
@@ -474,7 +474,7 @@ modifylm = function(ref1, ref2, num, target) {
   num = sumlm(ref1)
   print(num - target) #should be 0
   
-  return(list(ref1, ref2))
+  return(list(c = ref1, a = ref2))
 }
 
 SULCI = makeSulci()
